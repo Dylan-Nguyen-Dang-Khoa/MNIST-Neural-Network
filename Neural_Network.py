@@ -12,4 +12,3 @@ class Layer:
             0, output
         )  # Implemented ReLu activation for the pre-activation output
 
-    d
