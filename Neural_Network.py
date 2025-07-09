@@ -1,10 +1,6 @@
 import numpy as np
 
 
-def he_normal(fan_in, fan_out):
-    return np.random.normal(loc=0.0, scale=np.sqrt(2 / fan_in), size=(fan_out, fan_in))
-
-
 class Layer:
     def __init__(self, weights, bias, activation):
         self.weights = weights  # The weight matrix is of the order n_out * n_in
@@ -32,8 +28,22 @@ class Layer:
         return z_exp / np.sum(z_exp, axis=0, keepdims=True)
 
 
+def he_normal(fan_in, fan_out):
+    return np.random.normal(loc=0.0, scale=np.sqrt(2 / fan_in), size=(fan_out, fan_in))
+
+
+def load_data():
+    data = np.loadtxt("mnist_train.csv", delimiter=",", skiprows=1)
+    Y_train = data[:, 0].astype(int)
+    X_train = data[:, 1:]
+
+
 def main():
+    load_data()
     hidden_layer_1 = Layer(he_normal(784, 512), np.zeros((512, 1)), "relu")
     hidden_layer_2 = Layer(he_normal(512, 256), np.zeros((256, 1)), "relu")
     hidden_layer_3 = Layer(he_normal(256, 128), np.zeros((128, 1)), "relu")
     output_layer = Layer(he_normal(128, 10), np.zeros((10, 1)), "softmax")
+    
+
+
