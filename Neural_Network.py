@@ -34,14 +34,23 @@ def he_normal(fan_in, fan_out):
 
 def load_data():
     data = np.loadtxt("mnist_train.csv", delimiter=",", skiprows=1)
-    Y_train = data[:, 0].astype(int)
-    X_train = data[:, 1:]
-    return X_train / 255, Y_train
+    Y_data = data[:, 0].astype(int)
+    X_data = data[:, 1:]
+    return shuffle_data(X_data[:50000, :], Y_data[:50000, :]), shuffle_data(X_data[50000:, :], Y_data[50000:, :])
 
+def shuffle_data(x_data, y_data):
+    assert x_data[0] == y_data[0]
+    permuted_indicies = np.random.permutation(x_data[0])
+    return x_data[permuted_indicies], y_data[permuted_indicies]
 
 def main():
-    X_train, Y_train = load_data()
+    X_train, Y_train, X_validation, Y_validation = load_data()
     hidden_layer_1 = Layer(he_normal(784, 512), np.zeros((512, 1)), "relu")
     hidden_layer_2 = Layer(he_normal(512, 256), np.zeros((256, 1)), "relu")
     hidden_layer_3 = Layer(he_normal(256, 128), np.zeros((128, 1)), "relu")
     output_layer = Layer(he_normal(128, 10), np.zeros((10, 1)), "softmax")
+    max_epochs = 80
+    correct_outputs = 0
+    total_outputs = 0
+    for epoch in range(max_epochs):
+        
