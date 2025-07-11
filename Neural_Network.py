@@ -63,7 +63,7 @@ def forward_propagation(data, l1, l2, l3, l4):
     a3, z3 = l3.forward_pass(d2)
     d3 = dropout_mask(a3, 0.7)
     a4, z4 = l4.forward_pass(d3)
-    return a4, (z1, a1, z2, a2, z3, a3, a4)
+    return a4, (z1, a1, z2, a2, z3, a3, z4)
 
 
 def cross_entropy_loss(number_probabilities, label):
