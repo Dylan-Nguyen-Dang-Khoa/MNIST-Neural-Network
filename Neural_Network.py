@@ -18,14 +18,14 @@ class Layer:
         )  # Return activated output with ReLu if hidden layer else use softmax for output layer
 
     def ReLu(self, pre_activation_output):
-        return np.maximum(0, pre_activation_output)
+        return np.maximum(0, pre_activation_output), pre_activation_output
 
     def softmax(self, pre_activation_output):
         z_shifted = pre_activation_output - np.max(
             pre_activation_output, axis=0, keepdims=True
         )
         z_exp = np.exp(z_shifted)
-        return z_exp / np.sum(z_exp, axis=0, keepdims=True)
+        return z_exp / np.sum(z_exp, axis=0, keepdims=True), pre_activation_output
 
 
 def he_normal(fan_in, fan_out):
@@ -49,26 +49,44 @@ def shuffle_data(x_data, y_data):
     return x_data[permuted_indicies], y_data[permuted_indicies]
 
 
-def forward_propagation(X_train, Y_train):
-    hidden_layer_1 = Layer(he_normal(784, 512), np.zeros((512,)), "relu")
-    hidden_layer_2 = Layer(he_normal(512, 256), np.zeros((256,)), "relu")
-    hidden_layer_3 = Layer(he_normal(256, 128), np.zeros((128,)), "relu")
-    output_layer = Layer(he_normal(128, 10), np.zeros((10,)), "softmax")
-    max_epochs = 80
+def dropout_mask(activated_output, keep_prob):
+    mask = np.random.rand(*activated_output.shape) < keep_prob
+    dropped_output = activated_output * mask
+    return dropped_output
+
+
+def forward_propagation(data, l1, l2, l3, l4):
+    a1, z1 = l1.forward_pass(data)
+    d1 = dropout_mask(a1, 0.7)
+    a2, z2 = l2.forward_pass(d1)
+    d2 = dropout_mask(a2, 0.7)
+    a3, z3 = l3.forward_pass(d2)
+    d3 = dropout_mask(a3, 0.7)
+    a4, z4 = l4.forward_pass(d3)
+    return a4, (z1, a1, z2, a2, z3, a3, a4)
+
+
+def cross_entropy_loss(number_probabilities, label):
+    return -np.log10(number_probabilities[label])
+
+
+def train():
+    X_train, Y_train, X_validation, Y_validation = load_data()
+    l1 = Layer(he_normal(784, 512), np.zeros((512,)), "relu")
+    l2 = Layer(he_normal(512, 256), np.zeros((256,)), "relu")
+    l3 = Layer(he_normal(256, 128), np.zeros((128,)), "relu")
+    l4 = Layer(he_normal(128, 10), np.zeros((10,)), "softmax")
+    max_epochs = 30
     correct_outputs = 0
     total_outputs = 0
     for epoch in range(max_epochs):
+        X_train, Y_train = shuffle_data(X_train, Y_train)
         for row in range(len(X_train)):
-            layer_1_output = hidden_layer_1.forward_pass(X_train[row, :])
-            layer_2_output = hidden_layer_2.forward_pass(layer_1_output)
-            layer_3_output = hidden_layer_3.forward_pass(layer_2_output)
-            final_output = output_layer.forward_pass(layer_3_output)
-            print(final_output)
+            final_output, intermediate_outputs = forward_propagation(
+                X_train[row, :], l1, l2, l3, l4
+            )
+            print(final_output.shape)
+            loss = cross_entropy_loss(final_output, Y_train[row])
 
 
-def main():
-    X_train, Y_train, X_validation, Y_validation = load_data()
-    forward_propagation(X_train, Y_train)
-
-
-main()
+train()
