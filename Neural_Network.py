@@ -86,6 +86,8 @@ def train():
             final_output, intermediate_outputs = forward_propagation(
                 X_train[row, :], *layers
             )
+            correct_outputs += 1 if np.argmax(final_output) == correct_answer else 0
+            total_outputs += 1
             loss = cross_entropy_loss(final_output, correct_answer)
             for layer_i in range(3, 0, -1):
                 layer = layers[layer_i]
