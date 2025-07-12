@@ -69,6 +69,9 @@ def forward_propagation(data, l1, l2, l3, l4):
 def cross_entropy_loss(number_probabilities, label):
     return -np.log10(number_probabilities[label])
 
+def calculate_gradients(delta, a_previous):
+    return delta * a_previous, delta
+
 
 def train():
     X_train, Y_train, X_validation, Y_validation = load_data()
@@ -85,8 +88,8 @@ def train():
             final_output, intermediate_outputs = forward_propagation(
                 X_train[row, :], l1, l2, l3, l4
             )
-            print(final_output.shape)
             loss = cross_entropy_loss(final_output, Y_train[row])
+            dW, db = calculate_gradients()
 
 
 train()
