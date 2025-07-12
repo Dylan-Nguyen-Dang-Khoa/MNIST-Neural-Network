@@ -69,6 +69,7 @@ def forward_propagation(data, l1, l2, l3, l4):
 def cross_entropy_loss(number_probabilities, label):
     return -np.log10(number_probabilities[label])
 
+
 def calculate_gradients(delta, a_previous):
     return delta * a_previous, delta
 
