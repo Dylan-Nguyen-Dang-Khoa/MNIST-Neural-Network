@@ -63,34 +63,41 @@ def forward_propagation(data, l1, l2, l3, l4):
     a3, z3 = l3.forward_pass(d2)
     d3 = dropout_mask(a3, 0.7)
     a4, z4 = l4.forward_pass(d3)
-    return a4, (z1, a1, z2, a2, z3, a3, z4)
-
-
-def cross_entropy_loss(number_probabilities, label):
-    return -np.log10(number_probabilities[label])
-
-
-def calculate_gradients(delta, a_previous):
-    return delta * a_previous, delta
+    return z4, ((a1, z1), (a2, z2), (a3, z3), (a4, z4))
 
 
 def train():
     X_train, Y_train, X_validation, Y_validation = load_data()
-    l1 = Layer(he_normal(784, 512), np.zeros((512,)), "relu")
-    l2 = Layer(he_normal(512, 256), np.zeros((256,)), "relu")
-    l3 = Layer(he_normal(256, 128), np.zeros((128,)), "relu")
-    l4 = Layer(he_normal(128, 10), np.zeros((10,)), "softmax")
+    layers = [
+        Layer(he_normal(784, 512), np.zeros((512,)), "relu"),
+        Layer(he_normal(512, 256), np.zeros((256,)), "relu"),
+        Layer(he_normal(256, 128), np.zeros((128,)), "relu"),
+        Layer(he_normal(128, 10), np.zeros((10,)), "softmax"),
+    ]
     max_epochs = 30
     correct_outputs = 0
     total_outputs = 0
+    cross_entropy_loss = lambda output, label: -np.log(output[label])
+    calculate_dW = lambda delta, a_previous: delta * a_previous
     for epoch in range(max_epochs):
         X_train, Y_train = shuffle_data(X_train, Y_train)
         for row in range(len(X_train)):
+            correct_answer = [Y_train[row]]
             final_output, intermediate_outputs = forward_propagation(
-                X_train[row, :], l1, l2, l3, l4
+                X_train[row, :], *layers
             )
-            loss = cross_entropy_loss(final_output, Y_train[row])
-            dW, db = calculate_gradients()
+            loss = cross_entropy_loss(final_output, correct_answer)
+            for layer_i in range(3, 0, -1):
+                layer = layers[layer_i]
+                if layer_i == 3:
+                    y = np.zeros((10,))
+                    y[correct_answer] = 1
+                    delta = final_output - y
+                delta = delta.reshape(delta.shape[0], 1)
+                a_previous = intermediate_outputs[layer_i - 1][0].reshape(
+                    1, intermediate_outputs[layer_i - 1][0].shape[0]
+                )
+                dW, db = calculate_dW(delta, a_previous), delta
 
 
 train()
