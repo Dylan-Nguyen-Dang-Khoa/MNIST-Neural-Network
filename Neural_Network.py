@@ -4,30 +4,23 @@ import numpy as np
 class LoadData:
     def __init__(self):
         training_data = np.loadtxt("mnist_train.csv", delimiter=",", skiprows=1)
-        X_train, Y_train = self.shuffle_data(
-            training_data[:, 1:], training_data[:, 0].astype(int)
-        )
+        X_train, Y_train = training_data[:, 1:], training_data[:, 0].astype(int)
         test_data = np.loadtxt("mnist_test.csv", delimiter=",", skiprows=1)
-        X_test, Y_test = self.shuffle_data(
-            test_data[:, 1:], test_data[:, 0].astype(int)
-        )
+        X_test, Y_test = test_data[:, 1:], test_data[:, 0].astype(int)
 
-    def shuffle_data(self):
-        assert self.X_data.shape[0] == self.Y_data.shape[0]
-        permuted_indicies = np.random.permutation(self.X_data.shape[0])
-        return self.X_data[permuted_indicies], self.Y_data[permuted_indicies]
+    def shuffle_data(self, x_data, y_data):
+        assert x_data.shape[0] == x_data.shape[0]
+        permuted_indicies = np.random.permutation(x_data.shape[0])
+        return x_data[permuted_indicies], y_data[permuted_indicies]
 
     def load_training_data(self):
-        return (
-            self.X_data[:50000, :] / 255,
-            self.Y_data[:50000],
-        )
+        return self.shuffle_data(self.X_train[:50000, :] / 255, self.Y_train[:50000])
 
     def load_validation_data(self):
-        return self.X_data[50000:, :] / 255, self.Y_data[50000:]
+        return self.shuffle_data(self.X_train[50000:, :] / 255, self.Y_train[50000:])
 
     def load_test_data(self):
-        return self.X_test, self.Y_test
+        return self.shuffle_data(self.X_test, self.Y_test)
 
 
 class Layer:
@@ -73,21 +66,13 @@ class Network:
         return z_exp / np.sum(z_exp, axis=0, keepdims=True), pre_activation_output
 
 
-def delta_calculation(intermediate_outputs, layers): ...
-
-
 def train():
     big_data = LoadData()
-    layers = [
-        Layer(he_normal(784, 512), np.zeros((512,)), "relu"),
-        Layer(he_normal(512, 256), np.zeros((256,)), "relu"),
-        Layer(he_normal(256, 128), np.zeros((128,)), "relu"),
-        Layer(he_normal(128, 10), np.zeros((10,)), "softmax"),
-    ]
+    X_train, Y_train = big_data.load_training_data()
+    nn = Network()
     max_epochs = 30
     correct_outputs = 0
     total_outputs = 0
-    calculate_dW = lambda delta, a_previous: delta * a_previous
     for epoch in range(max_epochs):
         X_train, Y_train = shuffle_data(X_train, Y_train)
         for row in range(len(X_train)):
