@@ -1,6 +1,7 @@
 import numpy as np
 
 
+
 class LoadData:
     def __init__(self):
         training_data = np.loadtxt("mnist_train.csv", delimiter=",", skiprows=1)
@@ -46,6 +47,8 @@ class Network:
         self.l2 = Layer(512, 256)
         self.l3 = Layer(256, 128)
         self.l4 = Layer(128, 10)
+        self.lr = 0.01
+        self.weight_decay = 0.0001
 
     def dropout_mask(self, activated_output, keep_prob):
         mask = np.random.rand(*activated_output.shape) < keep_prob
@@ -64,7 +67,12 @@ class Network:
         self.d3 = self.dropout_mask(self.a3, 0.7)
         self.z4 = self.l4.weights @ self.d3 + self.l4.bias
         self.a4 = self.softmax(self.z4)
-        print(self.a4)
+
+    def backward_propagation(self, correct_answer, y=np.zeros(10)):
+        y[correct_answer] = 1
+        l4_delta = (self.a4 - y).reshape(10, 1)
+        dW_4 = l4_delta * self.a3.reshape(1, 128)
+        self.l4.weights -= self.lr * dW_4 + self.weight_decay * self.l4.weights
 
     def ReLu(self, pre_activation_output):
         return np.maximum(0, pre_activation_output)
