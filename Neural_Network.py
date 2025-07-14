@@ -68,28 +68,14 @@ class Network:
 
 def train():
     big_data = LoadData()
-    X_train, Y_train = big_data.load_training_data()
     nn = Network()
     max_epochs = 30
     correct_outputs = 0
     total_outputs = 0
     for epoch in range(max_epochs):
-        X_train, Y_train = shuffle_data(X_train, Y_train)
+        X_train, Y_train = big_data.load_training_data()
         for row in range(len(X_train)):
-            correct_answer = [Y_train[row]]
-            final_output, intermediate_outputs = forward_propagation(
-                X_train[row, :], *layers
-            )
-            correct_outputs += 1 if np.argmax(final_output) == correct_answer else 0
-            total_outputs += 1
-            delta = delta_calculation(intermediate_outputs, layers)
-            for layer_i in range(3, 0, -1):
-                layer = layers[layer_i]
-                layer_delta = delta[layer_i]
-                a_previous = intermediate_outputs[layer_i - 1][0].reshape(
-                    1, intermediate_outputs[layer_i - 1][0].shape[0]
-                )
-                dW, db = calculate_dW(delta, a_previous), delta
+            ...
 
 
 train()
