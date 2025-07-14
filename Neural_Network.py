@@ -4,9 +4,11 @@ import numpy as np
 class LoadData:
     def __init__(self):
         training_data = np.loadtxt("mnist_train.csv", delimiter=",", skiprows=1)
-        X_train, Y_train = training_data[:, 1:], training_data[:, 0].astype(int)
+        self.X_train, self.Y_train = training_data[:, 1:], training_data[:, 0].astype(
+            int
+        )
         test_data = np.loadtxt("mnist_test.csv", delimiter=",", skiprows=1)
-        X_test, Y_test = test_data[:, 1:], test_data[:, 0].astype(int)
+        self.X_test, self.Y_test = test_data[:, 1:], test_data[:, 0].astype(int)
 
     def shuffle_data(self, x_data, y_data):
         assert x_data.shape[0] == x_data.shape[0]
@@ -39,7 +41,7 @@ class Layer:
 
 
 class Network:
-    def __init__(self, layers):
+    def __init__(self):
         self.l1 = Layer(784, 512)
         self.l2 = Layer(512, 256)
         self.l3 = Layer(256, 128)
@@ -54,16 +56,22 @@ class Network:
         self.z1 = self.l1.weights @ data + self.l1.bias
         self.a1 = self.ReLu(self.z1)
         self.d1 = self.dropout_mask(self.a1, 0.7)
+        self.z2 = self.l2.weights @ self.d1 + self.l2.bias
+        self.a2 = self.ReLu(self.z2)
+        self.d2 = self.dropout_mask(self.a2, 0.7)
+        self.z3 = self.l3.weights @ self.d2 + self.l3.bias
+        self.a3 = self.ReLu(self.z3)
+        self.d3 = self.dropout_mask(self.a3, 0.7)
+        self.z4 = self.l4.weights @ self.d3 + self.l4.bias
+        self.a4 = self.softmax(self.z4)
+        print(self.a4)
 
     def ReLu(self, pre_activation_output):
-        return np.maximum(0, pre_activation_output), pre_activation_output
+        return np.maximum(0, pre_activation_output)
 
-    def softmax(self, pre_activation_output):
-        z_shifted = pre_activation_output - np.max(
-            pre_activation_output, axis=0, keepdims=True
-        )
-        z_exp = np.exp(z_shifted)
-        return z_exp / np.sum(z_exp, axis=0, keepdims=True), pre_activation_output
+    def softmax(self, x):
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum()
 
 
 def train():
@@ -75,7 +83,8 @@ def train():
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
         for row in range(len(X_train)):
-            ...
+            small_data = X_train[row]
+            nn.forward_propagation(small_data)
 
 
 train()
