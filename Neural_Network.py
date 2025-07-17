@@ -67,48 +67,19 @@ class Network:
         self.z4 = self.l4.weights @ self.d3 + self.l4.bias
         self.a4 = self.softmax(self.z4)
 
-    def hidden_layer_grad_calculation(
-        self,
-        next_layer_weights,
-        next_layer_delta,
-        this_layer_weights,
-        this_layer_z,
-        this_layer_a,
-    ):
-        delta = (
-            next_layer_weights
-            @ next_layer_delta
-            * self.ReLu_differentiation(this_layer_z)
-        )
-        return (
-            delta * this_layer_a.reshape(1, this_layer_a.shape[0])
-            + self.weight_decay * this_layer_weights,
-            delta,
-        )
+    def calculate_gradients(self):
+        ...
+    
 
     def update_params(self, dW, db, weights, bias):
         weights -= self.lr * dW
-        bias -= self.lr * db
+        bias -= (self.lr * db)
 
     def backward_propagation(self, correct_answer, y=np.zeros(10)):
         y[correct_answer] = 1
-        delta_l4 = (self.a4 - y).reshape(10, 1)
-        dW_4 = delta_l4 * self.a3.reshape(1, 128) + self.weight_decay * self.l4.weights
-        db_4 = delta_l4
-        dW_3, db_3 = self.hidden_layer_grad_calculation(
-            self.l4.weights, delta_l4, self.l3.weights, self.z3, self.a3
-        )
-        self.update_params(dW_3, db_3, self.l3.weights, self.l3.bias)
-        dW_2, db_2 = self.hidden_layer_grad_calculation(
-            self.l3.weights, db_3, self.l2.weights, self.z2, self.a2
-        )
-        self.update_params(dW_2, db_2, self.l2.weights, self.l2.bias)
-        dW_1, db_1 = self.hidden_layer_grad_calculation(
-            self.l2.weights, db_2, self.l1.weights, self.z1, self.a1
-        )
-        self.update_params(dW_1, db_1, self.l1.weights, self.l1.bias)
+        delta4 = (self.a4 - y)
 
-    def ReLu_differentiation(array):
+    def ReLu_differentiation(self, array):
         return (array > 0).astype(float)
 
     def ReLu(self, pre_activation_output):
