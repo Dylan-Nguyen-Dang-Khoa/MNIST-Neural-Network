@@ -29,7 +29,7 @@ class Layer:
     def __init__(self, fan_in, fan_out):
         self.weights = self.he_normal(
             fan_in, fan_out
-        )  # The weight matrix is of the order n_out * n_in
+        )  # The weight matrix is of the order n_in * n_out
         self.bias = np.zeros(
             fan_out
         )  # The bias vector is a column vector with n_out biases
@@ -55,11 +55,11 @@ class Network:
         dropped_output = activated_output * mask
         return dropped_output
 
-    def forward_propagation(self, data):
-        self.z1 = data @ self.l1.weights + self.l1.bias
+    def forward_propagation(self, a0):
+        self.z1 = a0 @ self.l1.weights + self.l1.bias
         self.a1 = self.ReLu(self.z1)
         self.d1 = self.dropout_mask(self.a1, 0.7)
-        self.z2 = self.d1 @ self.l2.weights+ self.l2.bias
+        self.z2 = self.d1 @ self.l2.weights + self.l2.bias
         self.a2 = self.ReLu(self.z2)
         self.d2 = self.dropout_mask(self.a2, 0.7)
         self.z3 = self.d2 @ self.l3.weights + self.l3.bias
@@ -68,17 +68,34 @@ class Network:
         self.z4 = self.d3 @ self.l4.weights + self.l4.bias
         self.a4 = self.softmax(self.z4)
 
-    def calculate_gradients(self):
-        ...
-    
-
     def update_params(self, dW, db, weights, bias):
-        weights -= self.lr * dW
-        bias -= (self.lr * db)
+        weights -= (self.lr * dW) / self.batch_size
+        bias -= (self.lr * db) / self.batch_size
 
-    def backward_propagation(self, correct_answer, y=np.zeros(10)):
-        y[correct_answer] = 1
-        delta4 = (self.a4 - y)
+    def backward_propagation(self, a0, correct_answer):
+        y = self.one_hot_generation(correct_answer)
+        delta4 = self.a4 - y
+        dW4 = self.a3.T @ delta4
+        db4 = np.sum(delta4, axis=0)
+        delta3 = (delta4 @ self.l4.weights.T) * self.ReLu_differentiation(self.z3)
+        dW3 = self.a2.T @ delta3
+        db3 = np.sum(delta3, axis=0)
+        delta2 = (delta3 @ self.l3.weights.T) * self.ReLu_differentiation(self.z2)
+        dW2 = self.a1.T @ delta2
+        db2 = np.sum(delta2, axis=0)
+        delta1 = (delta2 @ self.l2.weights.T) * self.ReLu_differentiation(self.z1)
+        dW1 = a0.T @ delta1
+        db1 = np.sum(delta1, axis=0)
+        self.update_params(dW4, db4, self.l4.weights, self.l4.bias)
+        self.update_params(dW3, db3, self.l3.weights, self.l3.bias)
+        self.update_params(dW2, db2, self.l2.weights, self.l2.bias)
+        self.update_params(dW1, db1, self.l1.weights, self.l1.bias)
+
+    def one_hot_generation(correct_answer):
+        y = np.zeros((correct_answer.shape[0], 10))
+        for row in range(len(y)):
+            y[row][correct_answer[row]] = 1.0
+        return y
 
     def ReLu_differentiation(self, array):
         return (array > 0).astype(float)
@@ -90,20 +107,25 @@ class Network:
         e_x = np.exp(x - np.max(x))
         return e_x / e_x.sum()
 
+    def cross_entropy_loss(self, correct_answer):
+        y = self.one_hot_generation(correct_answer)
+
 
 def train():
     big_data = LoadData()
     nn = Network()
     max_epochs = 30
+    loss = 0
     correct_outputs = 0
     total_outputs = 0
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
         for row in range(0, len(X_train), nn.batch_size):
-            small_data = X_train[row: row + nn.batch_size]
-            correct_answer = Y_train[row: row + nn.batch_size]
+            small_data = X_train[row : row + nn.batch_size]
+            correct_answer = Y_train[row : row + nn.batch_size]
             nn.forward_propagation(small_data)
-            nn.backward_propagation(correct_answer)
+            loss = nn.cross_entropy_loss(correct_answer)
+            nn.backward_propagation(small_data, correct_answer)
 
 
 train()
