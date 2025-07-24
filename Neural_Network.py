@@ -73,8 +73,8 @@ class Network:
         bias -= (self.lr * db) / self.batch_size
 
     def backward_propagation(self, a0, correct_answer):
-        y = self.one_hot_generation(correct_answer)
-        delta4 = self.a4 - y
+        y_true = self.one_hot_generation(correct_answer)
+        delta4 = self.a4 - y_true
         dW4 = self.a3.T @ delta4
         db4 = np.sum(delta4, axis=0)
         delta3 = (delta4 @ self.l4.weights.T) * self.ReLu_differentiation(self.z3)
@@ -91,11 +91,11 @@ class Network:
         self.update_params(dW2, db2, self.l2.weights, self.l2.bias)
         self.update_params(dW1, db1, self.l1.weights, self.l1.bias)
 
-    def one_hot_generation(correct_answer):
-        y = np.zeros((correct_answer.shape[0], 10))
-        for row in range(len(y)):
-            y[row][correct_answer[row]] = 1.0
-        return y
+    def one_hot_generation(self, correct_answers):
+        y_true = np.zeros((correct_answers.shape[0], 10))
+        for row in range(len(y_true)):
+            y_true[row][correct_answers[row]] = 1.0
+        return y_true
 
     def ReLu_differentiation(self, array):
         return (array > 0).astype(float)
@@ -107,25 +107,42 @@ class Network:
         e_x = np.exp(x - np.max(x))
         return e_x / e_x.sum()
 
-    def cross_entropy_loss(self, correct_answer):
-        y = self.one_hot_generation(correct_answer)
+    def cross_entropy_loss(self, correct_answers):
+        y_pred = np.clip(self.a4, 1e-12, 1.0)
+        correct_probs = y_pred[np.arange(len(y_pred)), correct_answers]
+        batch_total_loss = -np.sum(np.log10(correct_probs))
+        return batch_total_loss
+
+    def epoch_details(self, epoch_num, loss, epoch_accuracy):
+        print(f"Epoch {epoch_num}")
+        print()
+        print(f"Average training loss: {loss}")
+        print(f"Epoch Accuracy: {epoch_accuracy}")
+
+    def is_correct_output(self, correct_answers):
+        highest_probs_classes = np.argmax(self.a4, axis=1)
+        return np.sum(np.equal(highest_probs_classes, correct_answers))
 
 
 def train():
     big_data = LoadData()
     nn = Network()
     max_epochs = 30
-    loss = 0
-    correct_outputs = 0
-    total_outputs = 0
+
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
+        total_epoch_loss = 0
+        correct_outputs = 0
         for row in range(0, len(X_train), nn.batch_size):
             small_data = X_train[row : row + nn.batch_size]
             correct_answer = Y_train[row : row + nn.batch_size]
             nn.forward_propagation(small_data)
-            loss = nn.cross_entropy_loss(correct_answer)
+            total_epoch_loss += nn.cross_entropy_loss(correct_answer)
             nn.backward_propagation(small_data, correct_answer)
+            correct_outputs += nn.is_correct_output(Y_train[row : row + nn.batch_size])
+        average_loss = total_epoch_loss / len(X_train)
+        epoch_accuracy = correct_outputs / len(X_train)
+        nn.epoch_details(epoch, average_loss, epoch_accuracy)
 
 
 train()
