@@ -46,7 +46,7 @@ class Network:
         self.l2 = Layer(512, 256)
         self.l3 = Layer(256, 128)
         self.l4 = Layer(128, 10)
-        self.lr = 0.01
+        self.lr = 0.005
         self.weight_decay = 0.0001
         self.batch_size = 64
 
@@ -75,16 +75,16 @@ class Network:
     def backward_propagation(self, a0, correct_answer):
         y_true = self.one_hot_generation(correct_answer)
         delta4 = self.a4 - y_true
-        dW4 = self.a3.T @ delta4
+        dW4 = self.a3.T @ delta4 + self.weight_decay * self.l4.weights
         db4 = np.sum(delta4, axis=0)
         delta3 = (delta4 @ self.l4.weights.T) * self.ReLu_differentiation(self.z3)
-        dW3 = self.a2.T @ delta3
+        dW3 = self.a2.T @ delta3 + self.weight_decay * self.l3.weights
         db3 = np.sum(delta3, axis=0)
         delta2 = (delta3 @ self.l3.weights.T) * self.ReLu_differentiation(self.z2)
-        dW2 = self.a1.T @ delta2
+        dW2 = self.a1.T @ delta2 + self.weight_decay * self.l2.weights
         db2 = np.sum(delta2, axis=0)
         delta1 = (delta2 @ self.l2.weights.T) * self.ReLu_differentiation(self.z1)
-        dW1 = a0.T @ delta1
+        dW1 = a0.T @ delta1 + self.weight_decay * self.l1.weights
         db1 = np.sum(delta1, axis=0)
         self.update_params(dW4, db4, self.l4.weights, self.l4.bias)
         self.update_params(dW3, db3, self.l3.weights, self.l3.bias)
@@ -104,8 +104,9 @@ class Network:
         return np.maximum(0, pre_activation_output)
 
     def softmax(self, x):
-        e_x = np.exp(x - np.max(x))
-        return e_x / e_x.sum()
+        x = x - np.max(x, axis=1, keepdims=True)
+        e_x = np.exp(x)
+        return e_x / np.sum(e_x, axis=1, keepdims=True)
 
     def cross_entropy_loss(self, correct_answers):
         y_pred = np.clip(self.a4, 1e-12, 1.0)
@@ -114,10 +115,12 @@ class Network:
         return batch_total_loss
 
     def epoch_details(self, epoch_num, loss, epoch_accuracy):
-        print(f"Epoch {epoch_num}")
+        print("-" * 50)
+        print(f"Epoch {epoch_num+1}")
         print()
         print(f"Average training loss: {loss}")
         print(f"Epoch Accuracy: {epoch_accuracy}")
+        print("-" * 50)
 
     def is_correct_output(self, correct_answers):
         highest_probs_classes = np.argmax(self.a4, axis=1)
@@ -127,7 +130,7 @@ class Network:
 def train():
     big_data = LoadData()
     nn = Network()
-    max_epochs = 30
+    max_epochs = 67
 
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
