@@ -22,7 +22,7 @@ class LoadData:
         return self.shuffle_data(self.X_train[50000:, :] / 255, self.Y_train[50000:])
 
     def load_test_data(self):
-        return self.shuffle_data(self.X_test, self.Y_test)
+        return self.shuffle_data(self.X_test / 255, self.Y_test)
 
 
 class Layer:
@@ -42,13 +42,13 @@ class Layer:
 
 class Network:
     def __init__(self):
-        self.l1 = Layer(784, 256)
-        self.l2 = Layer(256, 128)
-        self.l3 = Layer(128, 10)
-        self.lr = 0.0001
-        self.weight_decay = 0.0005
-        self.batch_size = 64
-        self.dropout_prob = 0.3
+        self.l1 = Layer(784, 64)
+        self.l2 = Layer(64, 32)
+        self.l3 = Layer(32, 10)
+        self.lr = 0.005
+        self.weight_decay = 0.0001
+        self.batch_size = 128
+        self.dropout_prob = 0.0
 
     def dropout_mask(self, activated_output):
         mask = (np.random.rand(*activated_output.shape) > self.dropout_prob).astype(
@@ -68,25 +68,36 @@ class Network:
         self.a3 = self.stable_softmax(self.z3)
 
     def stable_softmax(self, z):
-        max_z = np.max(z, axis=1, keepdims=True)
-        exp_z = np.exp(z - max_z)
+        z = z - np.max(z, axis=1, keepdims=True)
+        exp_z = np.exp(z)
         return exp_z / np.sum(exp_z, axis=1, keepdims=True)
 
     def backward_propagation(self, a0, correct_answer):
+        clip_value = 1.0
         y_true = self.one_hot_generation(correct_answer)
         delta3 = self.a3 - y_true
-        dW3 = (
-            self.a2.T @ delta3 + self.weight_decay * self.l3.weights
-        ) / self.batch_size
-        db3 = np.sum(delta3, axis=0) / self.batch_size
+        dW3 = np.clip(
+            (self.a2.T @ delta3) / self.batch_size
+            + self.weight_decay * self.l3.weights,
+            -clip_value,
+            clip_value,
+        )
+        db3 = np.clip(np.sum(delta3, axis=0) / self.batch_size, -clip_value, clip_value)
         delta2 = (delta3 @ self.l3.weights.T) * self.ReLu_differentiation(self.z2)
-        dW2 = (
-            self.a1.T @ delta2 + self.weight_decay * self.l2.weights
-        ) / self.batch_size
-        db2 = np.sum(delta2, axis=0) / self.batch_size
+        dW2 = np.clip(
+            (self.a1.T @ delta2) / self.batch_size
+            + self.weight_decay * self.l2.weights,
+            -clip_value,
+            clip_value,
+        )
+        db2 = np.clip(np.sum(delta2, axis=0) / self.batch_size, -clip_value, clip_value)
         delta1 = (delta2 @ self.l2.weights.T) * self.ReLu_differentiation(self.z1)
-        dW1 = a0.T @ delta1 + self.weight_decay * self.l1.weights / self.batch_size
-        db1 = np.sum(delta1, axis=0) / self.batch_size
+        dW1 = np.clip(
+            a0.T @ delta1 / self.batch_size + self.weight_decay * self.l1.weights,
+            -clip_value,
+            clip_value,
+        )
+        db1 = np.clip(np.sum(delta1, axis=0) / self.batch_size, -clip_value, clip_value)
         self.l3.weights -= self.lr * dW3
         self.l3.bias -= self.lr * db3
         self.l2.weights -= self.lr * dW2
@@ -107,10 +118,9 @@ class Network:
         return np.maximum(0, pre_activation_output)
 
     def cross_entropy_loss(self, correct_answers):
-        y_pred = self.a3
+        y_pred = np.clip(self.a3, 1e-10, 1.0)
         correct_probs = y_pred[np.arange(len(y_pred)), correct_answers]
-        batch_total_loss = -np.sum(np.log(correct_probs))
-        return batch_total_loss
+        return -np.sum(np.log(correct_probs))
 
     def epoch_details(self, epoch_num, loss, epoch_accuracy):
         print("-" * 50)
