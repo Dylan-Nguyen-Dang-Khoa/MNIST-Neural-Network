@@ -42,10 +42,10 @@ class Layer:
 
 class Network:
     def __init__(self):
-        self.l1 = Layer(784, 64)
-        self.l2 = Layer(64, 32)
-        self.l3 = Layer(32, 10)
-        self.lr = 0.005
+        self.l1 = Layer(784, 128)
+        self.l2 = Layer(128, 64)
+        self.l3 = Layer(64, 10)
+        self.lr = 0.05
         self.weight_decay = 0.0001
         self.batch_size = 128
         self.dropout_prob = 0.0
@@ -73,7 +73,7 @@ class Network:
         return exp_z / np.sum(exp_z, axis=1, keepdims=True)
 
     def backward_propagation(self, a0, correct_answer):
-        clip_value = 1.0
+        clip_value = float("inf")
         y_true = self.one_hot_generation(correct_answer)
         delta3 = self.a3 - y_true
         dW3 = np.clip(
