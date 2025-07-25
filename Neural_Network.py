@@ -42,54 +42,57 @@ class Layer:
 
 class Network:
     def __init__(self):
-        self.l1 = Layer(784, 512)
-        self.l2 = Layer(512, 256)
-        self.l3 = Layer(256, 128)
-        self.l4 = Layer(128, 10)
-        self.lr = 0.005
-        self.weight_decay = 0.0001
+        self.l1 = Layer(784, 256)
+        self.l2 = Layer(256, 128)
+        self.l3 = Layer(128, 10)
+        self.lr = 0.0001
+        self.weight_decay = 0.0005
         self.batch_size = 64
+        self.dropout_prob = 0.3
 
-    def dropout_mask(self, activated_output, keep_prob):
-        mask = np.random.rand(*activated_output.shape) < keep_prob
+    def dropout_mask(self, activated_output):
+        mask = (np.random.rand(*activated_output.shape) > self.dropout_prob).astype(
+            float
+        )
         dropped_output = activated_output * mask
         return dropped_output
 
     def forward_propagation(self, a0):
         self.z1 = a0 @ self.l1.weights + self.l1.bias
         self.a1 = self.ReLu(self.z1)
-        self.d1 = self.dropout_mask(self.a1, 0.7)
+        self.d1 = self.dropout_mask(self.a1)
         self.z2 = self.d1 @ self.l2.weights + self.l2.bias
         self.a2 = self.ReLu(self.z2)
-        self.d2 = self.dropout_mask(self.a2, 0.7)
+        self.d2 = self.dropout_mask(self.a2)
         self.z3 = self.d2 @ self.l3.weights + self.l3.bias
-        self.a3 = self.ReLu(self.z3)
-        self.d3 = self.dropout_mask(self.a3, 0.7)
-        self.z4 = self.d3 @ self.l4.weights + self.l4.bias
-        self.a4 = self.softmax(self.z4)
+        self.a3 = self.stable_softmax(self.z3)
 
-    def update_params(self, dW, db, weights, bias):
-        weights -= (self.lr * dW) / self.batch_size
-        bias -= (self.lr * db) / self.batch_size
+    def stable_softmax(self, z):
+        max_z = np.max(z, axis=1, keepdims=True)
+        exp_z = np.exp(z - max_z)
+        return exp_z / np.sum(exp_z, axis=1, keepdims=True)
 
     def backward_propagation(self, a0, correct_answer):
         y_true = self.one_hot_generation(correct_answer)
-        delta4 = self.a4 - y_true
-        dW4 = self.a3.T @ delta4 + self.weight_decay * self.l4.weights
-        db4 = np.sum(delta4, axis=0)
-        delta3 = (delta4 @ self.l4.weights.T) * self.ReLu_differentiation(self.z3)
-        dW3 = self.a2.T @ delta3 + self.weight_decay * self.l3.weights
-        db3 = np.sum(delta3, axis=0)
+        delta3 = self.a3 - y_true
+        dW3 = (
+            self.a2.T @ delta3 + self.weight_decay * self.l3.weights
+        ) / self.batch_size
+        db3 = np.sum(delta3, axis=0) / self.batch_size
         delta2 = (delta3 @ self.l3.weights.T) * self.ReLu_differentiation(self.z2)
-        dW2 = self.a1.T @ delta2 + self.weight_decay * self.l2.weights
-        db2 = np.sum(delta2, axis=0)
+        dW2 = (
+            self.a1.T @ delta2 + self.weight_decay * self.l2.weights
+        ) / self.batch_size
+        db2 = np.sum(delta2, axis=0) / self.batch_size
         delta1 = (delta2 @ self.l2.weights.T) * self.ReLu_differentiation(self.z1)
-        dW1 = a0.T @ delta1 + self.weight_decay * self.l1.weights
-        db1 = np.sum(delta1, axis=0)
-        self.update_params(dW4, db4, self.l4.weights, self.l4.bias)
-        self.update_params(dW3, db3, self.l3.weights, self.l3.bias)
-        self.update_params(dW2, db2, self.l2.weights, self.l2.bias)
-        self.update_params(dW1, db1, self.l1.weights, self.l1.bias)
+        dW1 = a0.T @ delta1 + self.weight_decay * self.l1.weights / self.batch_size
+        db1 = np.sum(delta1, axis=0) / self.batch_size
+        self.l3.weights -= self.lr * dW3
+        self.l3.bias -= self.lr * db3
+        self.l2.weights -= self.lr * dW2
+        self.l2.bias -= self.lr * db2
+        self.l1.weights -= self.lr * dW1
+        self.l1.bias -= self.lr * db1
 
     def one_hot_generation(self, correct_answers):
         y_true = np.zeros((correct_answers.shape[0], 10))
@@ -103,15 +106,10 @@ class Network:
     def ReLu(self, pre_activation_output):
         return np.maximum(0, pre_activation_output)
 
-    def softmax(self, x):
-        x = x - np.max(x, axis=1, keepdims=True)
-        e_x = np.exp(x)
-        return e_x / np.sum(e_x, axis=1, keepdims=True)
-
     def cross_entropy_loss(self, correct_answers):
-        y_pred = np.clip(self.a4, 1e-12, 1.0)
+        y_pred = self.a3
         correct_probs = y_pred[np.arange(len(y_pred)), correct_answers]
-        batch_total_loss = -np.sum(np.log10(correct_probs))
+        batch_total_loss = -np.sum(np.log(correct_probs))
         return batch_total_loss
 
     def epoch_details(self, epoch_num, loss, epoch_accuracy):
@@ -123,7 +121,7 @@ class Network:
         print("-" * 50)
 
     def is_correct_output(self, correct_answers):
-        highest_probs_classes = np.argmax(self.a4, axis=1)
+        highest_probs_classes = np.argmax(self.a3, axis=1)
         return np.sum(np.equal(highest_probs_classes, correct_answers))
 
 
@@ -131,7 +129,6 @@ def train():
     big_data = LoadData()
     nn = Network()
     max_epochs = 67
-
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
         total_epoch_loss = 0
