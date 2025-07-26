@@ -42,12 +42,12 @@ class Layer:
 
 class Network:
     def __init__(self):
-        self.l1 = Layer(784, 128)
-        self.l2 = Layer(128, 64)
-        self.l3 = Layer(64, 10)
-        self.lr = 0.05
+        self.l1 = Layer(784, 256)
+        self.l2 = Layer(256, 128)
+        self.l3 = Layer(128, 10)
+        self.lr = 0.1
         self.weight_decay = 0.0001
-        self.batch_size = 128
+        self.batch_size = 32
         self.dropout_prob = 0.0
 
     def dropout_mask(self, activated_output):
@@ -122,13 +122,29 @@ class Network:
         correct_probs = y_pred[np.arange(len(y_pred)), correct_answers]
         return -np.sum(np.log(correct_probs))
 
-    def epoch_details(self, epoch_num, loss, epoch_accuracy):
-        print("-" * 50)
+    def epoch_details(
+        self,
+        epoch_num,
+        training_loss,
+        training_accuracy,
+        validation_loss,
+        validation_accuracy,
+    ):
+        longest_data_value = max(
+            len(f"Epoch {epoch_num+1}"),
+            len(f"Average training loss: {training_loss}"),
+            len(f"Training accuracy: {training_accuracy}"),
+            len(f"Average validation loss: {validation_loss}"),
+            len(f"Validation accuracy: {validation_accuracy}"),
+        )
+        print("-" * longest_data_value)
         print(f"Epoch {epoch_num+1}")
         print()
-        print(f"Average training loss: {loss}")
-        print(f"Epoch Accuracy: {epoch_accuracy}")
-        print("-" * 50)
+        print(f"Average training loss: {training_loss}")
+        print(f"Training accuracy: {training_accuracy}")
+        print(f"Average validation loss: {validation_loss}")
+        print(f"Validation accuracy: {validation_accuracy}")
+        print("-" * longest_data_value)
 
     def is_correct_output(self, correct_answers):
         highest_probs_classes = np.argmax(self.a3, axis=1)
@@ -138,21 +154,44 @@ class Network:
 def train():
     big_data = LoadData()
     nn = Network()
-    max_epochs = 67
+    max_epochs = 100
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
-        total_epoch_loss = 0
-        correct_outputs = 0
+        total_epoch_loss = 0.0
+        correct_outputs = 0.0
         for row in range(0, len(X_train), nn.batch_size):
             small_data = X_train[row : row + nn.batch_size]
             correct_answer = Y_train[row : row + nn.batch_size]
             nn.forward_propagation(small_data)
             total_epoch_loss += nn.cross_entropy_loss(correct_answer)
             nn.backward_propagation(small_data, correct_answer)
-            correct_outputs += nn.is_correct_output(Y_train[row : row + nn.batch_size])
-        average_loss = total_epoch_loss / len(X_train)
-        epoch_accuracy = correct_outputs / len(X_train)
-        nn.epoch_details(epoch, average_loss, epoch_accuracy)
+            correct_outputs += nn.is_correct_output(correct_answer)
+        average_training_loss = total_epoch_loss / len(X_train)
+        training_accuracy = correct_outputs / len(X_train)
+        average_validation_loss, validation_accuracy = validate(
+            *big_data.load_validation_data(), nn
+        )
+        nn.epoch_details(
+            epoch,
+            average_training_loss,
+            training_accuracy,
+            average_validation_loss,
+            validation_accuracy,
+        )
+
+
+def validate(X_validation, Y_validation, nn):
+    correct_outputs = 0.0
+    total_validation_loss = 0.0
+    for row in range(0, len(X_validation), nn.batch_size):
+        small_data = X_validation[row : row + nn.batch_size]
+        correct_answer = Y_validation[row : row + nn.batch_size]
+        nn.forward_propagation(small_data)
+        total_validation_loss += nn.cross_entropy_loss(correct_answer)
+        correct_outputs += nn.is_correct_output(correct_answer)
+    return total_validation_loss / len(X_validation), correct_outputs / len(
+        X_validation
+    )
 
 
 train()
