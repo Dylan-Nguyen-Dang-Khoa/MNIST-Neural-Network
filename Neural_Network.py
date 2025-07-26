@@ -150,6 +150,110 @@ class Network:
         highest_probs_classes = np.argmax(self.a3, axis=1)
         return np.sum(np.equal(highest_probs_classes, correct_answers))
 
+    def save_parameters(self, filepath="model_parameters.npz"):
+        parameters = {
+            "layer_1": self.l1,
+            "layer_2": self.l2,
+            "layer_3": self.l3,
+        }
+        np.savez(filepath, **parameters)
+
+    def save_hyperparameters(self, filepath="model_hyperparameters.npz"):
+        hyperparameters = {
+            "learning_rate": self.lr,
+            "weight_decay": self.weight_decay,
+            "batch_size": self.batch_size,
+            "dropout_prob": self.dropout_prob,
+        }
+        np.savez(filepath, **hyperparameters)
+
+    def load_parameters(self, filepath="model_parameters.npz"):
+        try:
+            load_parameters = np.load(filepath, allow_pickle=False)
+            self.l1 = load_parameters["layer_1"]
+            self.l2 = load_parameters["layer_2"]
+            self.l3 = load_parameters["layer_3"]
+            self.lr = load_parameters["learning_rate"]
+            self.weight_decay = load_parameters["weight_decay"]
+            self.batch_size = load_parameters["batch_size"]
+            self.dropout_prob = load_parameters["dropout_prob"]
+        except FileNotFoundError:
+            print(f"Error: File '{filepath}' not found.")
+        except KeyError as e:
+            print(f"Error: Missing parameter {e} in the file.")
+
+
+class EarlyStopping:
+    def __init__(self):
+        self.validation_losses = []
+        self.training_losses = []
+        self.validation_accuracies = []
+
+        self.best_validation_loss = float("inf")
+        self.validation_patience = 5
+        self.validation_no_improvement = 0
+        self.min_validation_improvement = 0.001
+
+        self.overfitting_no_improvement = 0
+        self.overfitting_patience = 3
+        self.min_validation_accuracy_fluctuation = 0.01
+
+    def early_stopping(
+        self,
+        current_validation_loss,
+        current_training_loss,
+        current_validation_accuracy,
+    ):
+        self.validation_losses.append(current_validation_loss)
+        self.training_losses.append(current_training_loss)
+        self.validation_accuracies.append(current_validation_accuracy)
+
+        if len(self.validation_losses) > 10:
+            self.validation_losses.pop(0)
+        if len(self.training_losses) > 10:
+            self.training_losses.pop(0)
+        if len(self.validation_accuracies) > 10:
+            self.validation_accuracies.pop(0)
+
+        stop_reasons = []
+        if self.validation_loss():
+            stop_reasons.append("Validation loss plateau")
+        if self.overfitting_checker():
+            stop_reasons.append("Overfitting detected")
+        if self.accuracy_plateau():
+            stop_reasons.append("Validation accuracy plateau")
+
+        return bool(stop_reasons), stop_reasons
+
+    def validation_loss(self):
+        if self.validation_losses[-1] < (
+            self.best_validation_loss - self.min_validation_improvement
+        ):
+            self.best_validation_loss = self.validation_losses[-1]
+            self.validation_no_improvement = 0
+        else:
+            self.validation_no_improvement += 1
+        return self.validation_no_improvement >= self.validation_patience
+
+    def overfitting_checker(self):
+        if len(self.validation_losses) < 2 or len(self.training_losses) < 2:
+            return False
+        if self.validation_losses[-1] > min(self.validation_losses[-5:]):
+            self.overfitting_no_improvement += 1
+        else:
+            self.overfitting_no_improvement = 0
+        return (
+            self.overfitting_no_improvement >= self.overfitting_patience
+            and self.training_losses[-1] < self.training_losses[-2]
+        )
+
+    def accuracy_plateau(self):
+        return (
+            len(self.validation_accuracies) >= 10
+            and (max(self.validation_accuracies) - min(self.validation_accuracies))
+            < self.min_validation_accuracy_fluctuation
+        )
+
 
 def corrupt_labels(y, corruption_rate=1.0):
     np.random.seed(42)
@@ -180,6 +284,7 @@ def train():
     big_data = LoadData()
     nn = Network()
     max_epochs = 67
+    early_stopper = EarlyStopping()
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
         total_epoch_loss = 0.0
@@ -203,6 +308,15 @@ def train():
             average_validation_loss,
             validation_accuracy,
         )
+        bool_early_stop, stop_reasons = early_stopper.early_stopping(
+            average_validation_loss, average_training_loss, validation_accuracy
+        )
+        if bool_early_stop:
+            nn.save_parameters()
+            nn.save_hyperparameters
+            for reason in stop_reasons:
+                print(reason)
+            break
 
 
 def validate(X_validation, Y_validation, nn):
