@@ -151,10 +151,35 @@ class Network:
         return np.sum(np.equal(highest_probs_classes, correct_answers))
 
 
+def corrupt_labels(y, corruption_rate=1.0):
+    np.random.seed(42)
+    mask = np.random.rand(len(y)) < corruption_rate
+    y_corrupted = y.copy()
+    y_corrupted[mask] = np.random.randint(0, 10, size=np.sum(mask))
+    return y_corrupted
+
+
+def corrupt_features_gaussian(x, corruption_rate=0.67):
+    np.random.seed(42)
+    mask = np.random.rand(len(x)) < corruption_rate
+    x_corrupted = x.copy()
+    x_corrupted[mask] = x[mask] + np.random.normal(0, 0.5, x[mask].shape)
+    x_corrupted = np.clip(x_corrupted, 0, 1)
+    return x_corrupted
+
+
+def corrupt_features_uniform(x, corruption_rate=1.0):
+    np.random.seed(42)
+    mask = np.random.rand(len(x)) < corruption_rate
+    x_corrupted = x.copy()
+    x_corrupted[mask] = np.random.rand(*x_corrupted[mask].shape)
+    return x_corrupted
+
+
 def train():
     big_data = LoadData()
     nn = Network()
-    max_epochs = 100
+    max_epochs = 67
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
         total_epoch_loss = 0.0
