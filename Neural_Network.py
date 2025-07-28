@@ -22,7 +22,7 @@ class LoadData:
         return self.shuffle_data(self.X_train[50000:, :] / 255, self.Y_train[50000:])
 
     def load_test_data(self):
-        return self.shuffle_data(self.X_test / 255, self.Y_test)
+        return self.X_test / 255, self.Y_test
 
 
 class Layer:
@@ -57,13 +57,13 @@ class Network:
         dropped_output = activated_output * mask
         return dropped_output
 
-    def forward_propagation(self, a0):
+    def forward_propagation(self, a0, dropout):
         self.z1 = a0 @ self.l1.weights + self.l1.bias
         self.a1 = self.ReLu(self.z1)
-        self.d1 = self.dropout_mask(self.a1)
+        self.d1 = self.dropout_mask(self.a1) if dropout else self.a1
         self.z2 = self.d1 @ self.l2.weights + self.l2.bias
         self.a2 = self.ReLu(self.z2)
-        self.d2 = self.dropout_mask(self.a2)
+        self.d2 = self.dropout_mask(self.a2) if dropout else self.a2
         self.z3 = self.d2 @ self.l3.weights + self.l3.bias
         self.a3 = self.stable_softmax(self.z3)
 
@@ -129,6 +129,7 @@ class Network:
         training_accuracy,
         validation_loss,
         validation_accuracy,
+        validation_wrong_predictions,
     ):
         longest_data_value = max(
             len(f"Epoch {epoch_num+1}"),
@@ -144,43 +145,71 @@ class Network:
         print(f"Training accuracy: {training_accuracy}")
         print(f"Average validation loss: {validation_loss}")
         print(f"Validation accuracy: {validation_accuracy}")
+        print(
+            f"The following are the number of times the wrong class was predicted for each class:"
+        )
+        print()
+        for num_class, wrong_predictions in validation_wrong_predictions.items():
+            print(f"{num_class}: {wrong_predictions}")
         print("-" * longest_data_value)
 
     def is_correct_output(self, correct_answers):
-        highest_probs_classes = np.argmax(self.a3, axis=1)
-        return np.sum(np.equal(highest_probs_classes, correct_answers))
+        predicted_classes = np.argmax(self.a3, axis=1)
+        correct_mask = predicted_classes == correct_answers
+        return np.sum(correct_mask)
+
+    def wrong_counter(self, correct_answers, wrong_predictions):
+        predicted_classes = np.argmax(self.a3, axis=1)
+        correct_mask = predicted_classes == correct_answers
+        for true_class in correct_answers[~correct_mask]:
+            wrong_predictions[true_class] += 1
+        return wrong_predictions
 
     def save_parameters(self, filepath="model_parameters.npz"):
         parameters = {
-            "layer_1": self.l1,
-            "layer_2": self.l2,
-            "layer_3": self.l3,
+            "layer 1 weights": self.l1.weights,
+            "layer 1 bias": self.l1.bias,
+            "layer 2 weights": self.l2.weights,
+            "layer 2 bias": self.l2.bias,
+            "layer 3 weights": self.l3.weights,
+            "layer 3 bias": self.l3.bias,
         }
         np.savez(filepath, **parameters)
 
     def save_hyperparameters(self, filepath="model_hyperparameters.npz"):
         hyperparameters = {
-            "learning_rate": self.lr,
-            "weight_decay": self.weight_decay,
-            "batch_size": self.batch_size,
-            "dropout_prob": self.dropout_prob,
+            "learning rate": self.lr,
+            "weight decay": self.weight_decay,
+            "batch size": self.batch_size,
+            "dropout prob": self.dropout_prob,
         }
         np.savez(filepath, **hyperparameters)
 
     def load_parameters(self, filepath="model_parameters.npz"):
         try:
-            load_parameters = np.load(filepath, allow_pickle=False)
-            self.l1 = load_parameters["layer_1"]
-            self.l2 = load_parameters["layer_2"]
-            self.l3 = load_parameters["layer_3"]
-            self.lr = load_parameters["learning_rate"]
-            self.weight_decay = load_parameters["weight_decay"]
-            self.batch_size = load_parameters["batch_size"]
-            self.dropout_prob = load_parameters["dropout_prob"]
+            load_parameters = np.load(filepath, allow_pickle=True)
+            self.l1.weights = load_parameters["layer 1 weights"]
+            self.l1.bias = load_parameters["layer 1 bias"]
+            self.l2.weights = load_parameters["layer 2 weights"]
+            self.l2.bias = load_parameters["layer 2 bias"]
+            self.l3.weights = load_parameters["layer 3 weights"]
+            self.l3 = load_parameters["layer 3 bias"]
         except FileNotFoundError:
             print(f"Error: File '{filepath}' not found.")
         except KeyError as e:
             print(f"Error: Missing parameter {e} in the file.")
+
+    def load_hyperparameters(self, filepath="model_hyperparameters.npz"):
+        try:
+            load_hyperparameters = np.load(filepath, allow_pickle=True)
+            self.lr = load_hyperparameters["learning_rate"]
+            self.weight_decay = load_hyperparameters["weight_decay"]
+            self.batch_size = load_hyperparameters["batch_size"]
+            self.dropout_prob = load_hyperparameters["dropout_prob"]
+        except FileNotFoundError:
+            print(f"Error: File '{filepath}' not found.")
+        except KeyError as e:
+            print(f"Error: Missing hyperparameter {e} in the file.")
 
 
 class EarlyStopping:
@@ -196,6 +225,7 @@ class EarlyStopping:
 
         self.overfitting_no_improvement = 0
         self.overfitting_patience = 3
+
         self.min_validation_accuracy_fluctuation = 0.01
 
     def early_stopping(
@@ -281,6 +311,11 @@ def corrupt_features_uniform(x, corruption_rate=1.0):
 
 
 def train():
+    save_weights = (
+        input("Do you wish to save the weights of the training? (y, n): ")
+        .strip()
+        .lower()
+    )
     big_data = LoadData()
     nn = Network()
     max_epochs = 67
@@ -288,18 +323,18 @@ def train():
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
         total_epoch_loss = 0.0
-        correct_outputs = 0.0
+        correct_outputs = 0
         for row in range(0, len(X_train), nn.batch_size):
             small_data = X_train[row : row + nn.batch_size]
-            correct_answer = Y_train[row : row + nn.batch_size]
-            nn.forward_propagation(small_data)
-            total_epoch_loss += nn.cross_entropy_loss(correct_answer)
-            nn.backward_propagation(small_data, correct_answer)
-            correct_outputs += nn.is_correct_output(correct_answer)
+            correct_answers = Y_train[row : row + nn.batch_size]
+            nn.forward_propagation(small_data, True)
+            total_epoch_loss += nn.cross_entropy_loss(correct_answers)
+            nn.backward_propagation(small_data, correct_answers)
+            correct_outputs += nn.is_correct_output(correct_answers)
         average_training_loss = total_epoch_loss / len(X_train)
         training_accuracy = correct_outputs / len(X_train)
-        average_validation_loss, validation_accuracy = validate(
-            *big_data.load_validation_data(), nn
+        average_validation_loss, validation_accuracy, validation_wrong_predictions = (
+            validate(*big_data.load_validation_data(), nn)
         )
         nn.epoch_details(
             epoch,
@@ -307,30 +342,57 @@ def train():
             training_accuracy,
             average_validation_loss,
             validation_accuracy,
+            validation_wrong_predictions,
+            False,
         )
         bool_early_stop, stop_reasons = early_stopper.early_stopping(
             average_validation_loss, average_training_loss, validation_accuracy
         )
         if bool_early_stop:
-            nn.save_parameters()
-            nn.save_hyperparameters
+            if save_weights == "y":
+                nn.save_parameters()
+                nn.save_hyperparameters()
             for reason in stop_reasons:
                 print(reason)
             break
 
 
 def validate(X_validation, Y_validation, nn):
-    correct_outputs = 0.0
+    validation_wrong_predictions = {num_class: 0 for num_class in range(10)}
+    correct_outputs = 0
     total_validation_loss = 0.0
     for row in range(0, len(X_validation), nn.batch_size):
         small_data = X_validation[row : row + nn.batch_size]
-        correct_answer = Y_validation[row : row + nn.batch_size]
-        nn.forward_propagation(small_data)
-        total_validation_loss += nn.cross_entropy_loss(correct_answer)
-        correct_outputs += nn.is_correct_output(correct_answer)
-    return total_validation_loss / len(X_validation), correct_outputs / len(
-        X_validation
+        correct_answers = Y_validation[row : row + nn.batch_size]
+        nn.forward_propagation(small_data, False)
+        total_validation_loss += nn.cross_entropy_loss(correct_answers)
+        correct_outputs += nn.is_correct_output(correct_answers)
+        validation_wrong_predictions = nn.wrong_counter(
+            correct_answers, validation_wrong_predictions
+        )
+    return (
+        total_validation_loss / len(X_validation),
+        correct_outputs / len(X_validation),
+        validation_wrong_predictions,
     )
+
+
+def test():
+    big_data = LoadData()
+    nn = Network()
+    nn.batch_size = 512
+    nn.load_parameters()
+    X_test, Y_test = big_data.load_test_data()
+    correct_outputs = 0
+    test_wrong_predictions = {num_class: 0 for num_class in range(10)}
+    for row in range(0, len(X_test), nn.batch_size):
+        small_data = X_test[row : row + nn.batch_size]
+        correct_answers = Y_test[row : row + nn.batch_size]
+        nn.forward_propagation(small_data, False)
+        correct_outputs += nn.is_correct_output(correct_answers)
+        test_wrong_predictions = nn.wrong_counter(
+            correct_answers, test_wrong_predictions
+        )
 
 
 train()
