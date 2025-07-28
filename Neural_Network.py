@@ -131,14 +131,7 @@ class Network:
         validation_accuracy,
         validation_wrong_predictions,
     ):
-        longest_data_value = max(
-            len(f"Epoch {epoch_num+1}"),
-            len(f"Average training loss: {training_loss}"),
-            len(f"Training accuracy: {training_accuracy}"),
-            len(f"Average validation loss: {validation_loss}"),
-            len(f"Validation accuracy: {validation_accuracy}"),
-        )
-        print("-" * longest_data_value)
+        print("-" * 50)
         print(f"Epoch {epoch_num+1}")
         print()
         print(f"Average training loss: {training_loss}")
@@ -151,7 +144,19 @@ class Network:
         print()
         for num_class, wrong_predictions in validation_wrong_predictions.items():
             print(f"{num_class}: {wrong_predictions}")
-        print("-" * longest_data_value)
+        print("-" * 50)
+
+    def test_details(self, testing_accuracy, test_wrong_predictions):
+        print("-" * 50)
+        print(f"Testing accuracy: {testing_accuracy}")
+        print()
+        print(
+            f"The following are the number of times the wrong class was predicted for each class:"
+        )
+        print()
+        for num_class, wrong_predictions in test_wrong_predictions.items():
+            print(f"{num_class}: {wrong_predictions}")
+        print("-" * 50)
 
     def is_correct_output(self, correct_answers):
         predicted_classes = np.argmax(self.a3, axis=1)
@@ -193,7 +198,7 @@ class Network:
             self.l2.weights = load_parameters["layer 2 weights"]
             self.l2.bias = load_parameters["layer 2 bias"]
             self.l3.weights = load_parameters["layer 3 weights"]
-            self.l3 = load_parameters["layer 3 bias"]
+            self.l3.bias = load_parameters["layer 3 bias"]
         except FileNotFoundError:
             print(f"Error: File '{filepath}' not found.")
         except KeyError as e:
@@ -343,7 +348,6 @@ def train():
             average_validation_loss,
             validation_accuracy,
             validation_wrong_predictions,
-            False,
         )
         bool_early_stop, stop_reasons = early_stopper.early_stopping(
             average_validation_loss, average_training_loss, validation_accuracy
@@ -393,6 +397,8 @@ def test():
         test_wrong_predictions = nn.wrong_counter(
             correct_answers, test_wrong_predictions
         )
+    training_accuracy = correct_outputs / len(X_test)
+    nn.test_details(training_accuracy, test_wrong_predictions)
 
 
-train()
+test()
