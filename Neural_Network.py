@@ -316,11 +316,6 @@ def corrupt_features_uniform(x, corruption_rate=1.0):
 
 
 def train():
-    save_weights = (
-        input("Do you wish to save the weights of the training? (y, n): ")
-        .strip()
-        .lower()
-    )
     big_data = LoadData()
     nn = Network()
     max_epochs = 67
@@ -352,10 +347,15 @@ def train():
         bool_early_stop, stop_reasons = early_stopper.early_stopping(
             average_validation_loss, average_training_loss, validation_accuracy
         )
+        save_weights = (
+            input("Do you wish to save the weights of the training? (y, n): ")
+            .strip()
+            .lower()
+        )
         if bool_early_stop:
             if save_weights == "y":
-                nn.save_parameters()
-                nn.save_hyperparameters()
+                nn.save_parameters(filepath="model_separate_parameters.npz")
+                nn.save_hyperparameters(filepath="model_separate_hyperparameters.npz")
             for reason in stop_reasons:
                 print(reason)
             break
