@@ -4,12 +4,20 @@ import numpy as np
 
 class LoadData:
     def __init__(self):
-        training_data = np.loadtxt("mnist_train.csv", delimiter=",", skiprows=1)
+        training_data = np.loadtxt(
+            "./Training Data/Kaggle Competition Data/train.csv",
+            delimiter=",",
+            skiprows=1,
+        )
         self.X_train, self.Y_train = training_data[:, 1:], training_data[:, 0].astype(
             int
         )
-        test_data = np.loadtxt("mnist_test.csv", delimiter=",", skiprows=1)
-        self.X_test, self.Y_test = test_data[:, 1:], test_data[:, 0].astype(int)
+        test_data = np.loadtxt(
+            "./Training Data/Kaggle Competition Data/test.csv",
+            delimiter=",",
+            skiprows=1,
+        )
+        self.X_test = test_data[:, :]
 
     def shuffle_data(
         self, x_data: NDArray[np.float64], y_data: NDArray[np.float64]
@@ -19,13 +27,19 @@ class LoadData:
         return x_data[permuted_indicies], y_data[permuted_indicies]
 
     def load_training_data(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        return self.shuffle_data(self.X_train[:50000, :] / 255, self.Y_train[:50000])
+        return self.shuffle_data(
+            self.X_train[: int(0.9 * len(self.X_train)), :] / 255,
+            self.Y_train[: int(0.9 * len(self.X_train))],
+        )
 
     def load_validation_data(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        return self.shuffle_data(self.X_train[50000:, :] / 255, self.Y_train[50000:])
+        return self.shuffle_data(
+            self.X_train[int(0.9 * len(self.X_train)) :, :] / 255,
+            self.Y_train[int(0.9 * len(self.X_train)) :],
+        )
 
     def load_test_data(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        return self.X_test / 255, self.Y_test
+        return self.X_test / 255
 
 
 class Layer:
@@ -45,13 +59,13 @@ class Layer:
 
 class Network:
     def __init__(self):
-        self.l1 = Layer(784, 256)
-        self.l2 = Layer(256, 128)
-        self.l3 = Layer(128, 10)
-        self.lr = 0.1
-        self.weight_decay = 0.0001
-        self.batch_size = 32
+        self.l1 = Layer(784, 1024)
+        self.l2 = Layer(1024, 512)
+        self.l3 = Layer(512, 10)
+        self.lr = 0.05
+        self.weight_decay = 0.001
         self.dropout_prob = 0.0
+        self.batch_size = 64
 
     def dropout_mask(
         self, activated_output: NDArray[np.float64]
@@ -183,7 +197,9 @@ class Network:
             wrong_predictions[true_class] += 1
         return wrong_predictions
 
-    def save_parameters(self, filepath="model_parameters.npz") -> None:
+    def save_parameters(
+        self, filepath="./Training Results/Default/model_kaggle_parameters.npz"
+    ) -> None:
         parameters = {
             "layer 1 weights": self.l1.weights,
             "layer 1 bias": self.l1.bias,
@@ -194,7 +210,9 @@ class Network:
         }
         np.savez(filepath, **parameters)
 
-    def save_hyperparameters(self, filepath="model_hyperparameters.npz") -> None:
+    def save_hyperparameters(
+        self, filepath="./Training Results/Default/model_kaggle_hyperparameters.npz"
+    ) -> None:
         hyperparameters = {
             "learning rate": self.lr,
             "weight decay": self.weight_decay,
@@ -203,7 +221,9 @@ class Network:
         }
         np.savez(filepath, **hyperparameters)
 
-    def load_parameters(self, filepath="model_parameters.npz") -> None:
+    def load_parameters(
+        self, filepath="./Training Results/Default/model_kaggle_parameters.npz"
+    ) -> None:
         try:
             load_parameters = np.load(filepath, allow_pickle=True)
             self.l1.weights = load_parameters["layer 1 weights"]
@@ -217,90 +237,19 @@ class Network:
         except KeyError as e:
             print(f"Error: Missing parameter {e} in the file.")
 
-    def load_hyperparameters(self, filepath="model_hyperparameters.npz") -> None:
+    def load_hyperparameters(
+        self, filepath="./Training Results/Default/model_kaggle_hyperparameters.npz"
+    ) -> None:
         try:
             load_hyperparameters = np.load(filepath, allow_pickle=True)
-            self.lr = load_hyperparameters["learning_rate"]
-            self.weight_decay = load_hyperparameters["weight_decay"]
-            self.batch_size = load_hyperparameters["batch_size"]
-            self.dropout_prob = load_hyperparameters["dropout_prob"]
+            self.lr = load_hyperparameters["learning rate"]
+            self.weight_decay = load_hyperparameters["weight decay"]
+            self.batch_size = load_hyperparameters["batch size"]
+            self.dropout_prob = load_hyperparameters["dropout prob"]
         except FileNotFoundError:
             print(f"Error: File '{filepath}' not found.")
         except KeyError as e:
             print(f"Error: Missing hyperparameter {e} in the file.")
-
-
-class EarlyStopping:
-    def __init__(self):
-        self.validation_losses = []
-        self.training_losses = []
-        self.validation_accuracies = []
-
-        self.best_validation_loss = float("inf")
-        self.validation_patience = 5
-        self.validation_no_improvement = 0
-        self.min_validation_improvement = 0.001
-
-        self.overfitting_no_improvement = 0
-        self.overfitting_patience = 3
-
-        self.min_validation_accuracy_fluctuation = 0.01
-
-    def early_stopping(
-        self,
-        current_validation_loss: float,
-        current_training_loss: float,
-        current_validation_accuracy: float,
-    ) -> tuple[bool, list]:
-        self.validation_losses.append(current_validation_loss)
-        self.training_losses.append(current_training_loss)
-        self.validation_accuracies.append(current_validation_accuracy)
-
-        if len(self.validation_losses) > 10:
-            self.validation_losses.pop(0)
-        if len(self.training_losses) > 10:
-            self.training_losses.pop(0)
-        if len(self.validation_accuracies) > 10:
-            self.validation_accuracies.pop(0)
-
-        stop_reasons = []
-        if self.validation_loss():
-            stop_reasons.append("Validation loss plateau")
-        if self.overfitting_checker():
-            stop_reasons.append("Overfitting detected")
-        if self.accuracy_plateau():
-            stop_reasons.append("Validation accuracy plateau")
-
-        return bool(stop_reasons), stop_reasons
-
-    def validation_loss(self):
-        if self.validation_losses[-1] < (
-            self.best_validation_loss - self.min_validation_improvement
-        ):
-            self.best_validation_loss = self.validation_losses[-1]
-            self.validation_no_improvement = 0
-        else:
-            self.validation_no_improvement += 1
-        return self.validation_no_improvement >= self.validation_patience
-
-    def overfitting_checker(self):
-        if len(self.validation_losses) < 2 or len(self.training_losses) < 2:
-            return False
-        if self.validation_losses[-1] > min(self.validation_losses[-5:]):
-            self.overfitting_no_improvement += 1
-        else:
-            self.overfitting_no_improvement = 0
-        return (
-            self.overfitting_no_improvement >= self.overfitting_patience
-            and self.training_losses[-1] < self.training_losses[-2]
-        )
-
-    def accuracy_plateau(self):
-        return (
-            len(self.validation_accuracies) >= 10
-            and (max(self.validation_accuracies) - min(self.validation_accuracies))
-            < self.min_validation_accuracy_fluctuation
-        )
 
 
 class Corrupt:
@@ -337,10 +286,15 @@ class Corrupt:
 
 
 def train() -> None:
+    save_weights = (
+        input("Do you wish to save the weights of the training? (y, n): ")
+        .strip()
+        .lower()
+    )
     big_data = LoadData()
     nn = Network()
-    max_epochs = 67
-    early_stopper = EarlyStopping()
+    max_epochs = 100
+    best_validation_accuracy = 0.0
     for epoch in range(max_epochs):
         X_train, Y_train = big_data.load_training_data()
         total_epoch_loss = 0.0
@@ -365,21 +319,12 @@ def train() -> None:
             validation_accuracy,
             validation_wrong_predictions,
         )
-        bool_early_stop, stop_reasons = early_stopper.early_stopping(
-            average_validation_loss, average_training_loss, validation_accuracy
-        )
-        if bool_early_stop:
-            for reason in stop_reasons:
-                print(reason)
-            save_weights = (
-                input("Do you wish to save the weights of the training? (y, n): ")
-                .strip()
-                .lower()
+        if save_weights == "y" and validation_accuracy > best_validation_accuracy:
+            best_validation_accuracy = validation_accuracy
+            nn.save_parameters(
+                filepath="/Users/nguyendylan/Documents/GitHub/MNIST Neural Network/Training Results/Untested/model_kaggle_parameters.npz"
             )
-            if save_weights == "y":
-                nn.save_parameters(filepath="model_separate_parameters.npz")
-                nn.save_hyperparameters(filepath="model_separate_hyperparameters.npz")
-            break
+            print("Parameters saved")
 
 
 def validate(
@@ -408,20 +353,35 @@ def test() -> None:
     big_data = LoadData()
     nn = Network()
     nn.batch_size = 512
-    nn.load_parameters()
-    X_test, Y_test = big_data.load_test_data()
-    correct_outputs = 0
-    test_wrong_predictions = {num_class: 0 for num_class in range(10)}
+    nn.load_parameters(
+        filepath="./Training Results/Untested/model_kaggle_parameters.npz"
+    )
+    X_test = big_data.load_test_data()
+    index = 1
+    with open("./Training Results/Untested/submissions.csv", "w") as f:
+        f.write("ImageId,Label\n")
     for row in range(0, len(X_test), nn.batch_size):
         small_data = X_test[row : row + nn.batch_size]
-        correct_answers = Y_test[row : row + nn.batch_size]
         nn.forward_propagation(small_data, False)
-        correct_outputs += nn.is_correct_output(correct_answers)
-        test_wrong_predictions = nn.wrong_counter(
-            correct_answers, test_wrong_predictions
-        )
-    training_accuracy = correct_outputs / len(X_test)
-    nn.test_details(training_accuracy, test_wrong_predictions)
+        with open("./Training Results/Untested/submissions.csv", "a") as f:
+            for predictions in nn.a3:
+                np.savetxt(
+                    f,
+                    np.array([[index, np.argmax(predictions)]]),
+                    fmt="%d",
+                    delimiter=",",
+                )
+                index += 1
 
 
-train()
+def main():
+    action = input("Train or test: ").strip().lower()
+    if action == "train":
+        train()
+        print("Training complete")
+    elif action == "test":
+        test()
+        print("Testing complete")
+
+
+main()
