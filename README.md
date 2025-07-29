@@ -28,13 +28,13 @@ This project implements a fully connected neural network from scratch to classif
 
 ## File Structure
 .
-├── Training Results/
-│   ├── 0.97814/               # Best model (97.8% accuracy)
-│   ├── Untested/              # New trainings
-│   └── Default/               # Misc runs
-├── Neural_Network.py          # Main script
-└── README.md
-└── visualise.py               # Data plotting and graphing
+├── Training Results/\n
+│   ├── 0.97814/               # Best model (97.8% accuracy)\n
+│   ├── Untested/              # New trainings\n
+│   └── Default/               # Misc runs\n
+├── Neural_Network.py          # Main script\n
+└── README.md\n
+└── visualise.py               # Data plotting and graphing\n
 
 
 ## Usage
