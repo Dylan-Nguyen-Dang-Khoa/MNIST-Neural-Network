@@ -94,7 +94,7 @@ class Network:
     def backward_propagation(
         self, a0: NDArray[np.float64], correct_answer: NDArray[np.float64]
     ) -> None:
-        clip_value = float("inf")
+        clip_value = 1.0
         y_true = self.one_hot_generation(correct_answer)
         delta3 = self.a3 - y_true
         dW3 = np.clip(
