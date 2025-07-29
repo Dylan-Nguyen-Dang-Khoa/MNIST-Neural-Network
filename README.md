@@ -26,17 +26,6 @@ This project implements a fully connected neural network from scratch to classif
 - Python 3+
 - Numpy
 
-## File Structure
-.
-├── Training Results/\n
-│   ├── 0.97814/               # Best model (97.8% accuracy)\n
-│   ├── Untested/              # New trainings\n
-│   └── Default/               # Misc runs\n
-├── Neural_Network.py          # Main script\n
-└── README.md\n
-└── visualise.py               # Data plotting and graphing\n
-
-
 ## Usage
 ### Training a Model
 - Change the file that the parameters will be saved to in the train() function. You would have to change it in the codebase itself.
