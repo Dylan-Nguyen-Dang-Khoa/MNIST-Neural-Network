@@ -62,7 +62,7 @@ class Network:
         self.l1 = Layer(784, 1024)
         self.l2 = Layer(1024, 512)
         self.l3 = Layer(512, 10)
-        self.lr = 0.05
+        self.lr = 0.08
         self.weight_decay = 0.001
         self.dropout_prob = 0.0
         self.batch_size = 64
@@ -293,38 +293,48 @@ def train() -> None:
     )
     big_data = LoadData()
     nn = Network()
-    max_epochs = 100
+    max_epochs = 2**63 - 1
     best_validation_accuracy = 0.0
-    for epoch in range(max_epochs):
-        X_train, Y_train = big_data.load_training_data()
-        total_epoch_loss = 0.0
-        correct_outputs = 0
-        for row in range(0, len(X_train), nn.batch_size):
-            small_data = X_train[row : row + nn.batch_size]
-            correct_answers = Y_train[row : row + nn.batch_size]
-            nn.forward_propagation(small_data, True)
-            total_epoch_loss += nn.cross_entropy_loss(correct_answers)
-            nn.backward_propagation(small_data, correct_answers)
-            correct_outputs += nn.is_correct_output(correct_answers)
-        average_training_loss = total_epoch_loss / len(X_train)
-        training_accuracy = correct_outputs / len(X_train)
-        average_validation_loss, validation_accuracy, validation_wrong_predictions = (
-            validate(*big_data.load_validation_data(), nn)
-        )
-        nn.epoch_details(
-            epoch,
-            average_training_loss,
-            training_accuracy,
-            average_validation_loss,
-            validation_accuracy,
-            validation_wrong_predictions,
-        )
-        if save_weights == "y" and validation_accuracy > best_validation_accuracy:
-            best_validation_accuracy = validation_accuracy
-            nn.save_parameters(
-                filepath="/Users/nguyendylan/Documents/GitHub/MNIST Neural Network/Training Results/Untested/model_kaggle_parameters.npz"
+    best_epoch = 0
+    try:
+        for epoch in range(max_epochs):
+            X_train, Y_train = big_data.load_training_data()
+            total_epoch_loss = 0.0
+            correct_outputs = 0
+            for row in range(0, len(X_train), nn.batch_size):
+                small_data = X_train[row : row + nn.batch_size]
+                correct_answers = Y_train[row : row + nn.batch_size]
+                nn.forward_propagation(small_data, True)
+                total_epoch_loss += nn.cross_entropy_loss(correct_answers)
+                nn.backward_propagation(small_data, correct_answers)
+                correct_outputs += nn.is_correct_output(correct_answers)
+            average_training_loss = total_epoch_loss / len(X_train)
+            training_accuracy = correct_outputs / len(X_train)
+            (
+                average_validation_loss,
+                validation_accuracy,
+                validation_wrong_predictions,
+            ) = validate(*big_data.load_validation_data(), nn)
+            nn.epoch_details(
+                epoch,
+                average_training_loss,
+                training_accuracy,
+                average_validation_loss,
+                validation_accuracy,
+                validation_wrong_predictions,
             )
-            print("Parameters saved")
+            if validation_accuracy > best_validation_accuracy:
+                best_validation_accuracy = validation_accuracy
+                best_epoch = epoch
+                if save_weights == "y":
+                    nn.save_parameters(
+                        filepath="./Training Results/Untested/model_kaggle_parameters.npz"
+                    )
+                    print("Parameters saved")
+    except KeyboardInterrupt:
+        print("\nTraining stopped manually.")
+        print(f"Best epoch: {best_epoch}")
+        print(f"Epoch {best_epoch} validation accuracy: {best_validation_accuracy}")
 
 
 def validate(
