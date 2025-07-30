@@ -4,20 +4,20 @@ import numpy as np
 
 class LoadData:
     def __init__(self):
-        training_data = np.loadtxt(
-            "./Training Data/Kaggle Competition Data/train.csv",
+        self.training_data = np.loadtxt(
+            "./Training Data/Self Training/mnist_test.csv",
             delimiter=",",
             skiprows=1,
         )
-        self.X_train, self.Y_train = training_data[:, 1:], training_data[:, 0].astype(
-            int
-        )
-        test_data = np.loadtxt(
+        self.X_train, self.Y_train = self.training_data[:, 1:], self.training_data[
+            :, 0
+        ].astype(int)
+        self.test_data = np.loadtxt(
             "./Training Data/Kaggle Competition Data/test.csv",
             delimiter=",",
             skiprows=1,
         )
-        self.X_test = test_data[:, :]
+        self.X_test = self.test_data[:, :]
 
     def shuffle_data(
         self, x_data: NDArray[np.float64], y_data: NDArray[np.float64]
@@ -364,16 +364,16 @@ def test() -> None:
     nn = Network()
     nn.batch_size = 512
     nn.load_parameters(
-        filepath="./Training Results/Untested/model_kaggle_parameters.npz"
+        filepath="./Training Results/0.97814/model_kaggle_parameters.npz"
     )
     X_test = big_data.load_test_data()
     index = 1
-    with open("./Training Results/Untested/submissions.csv", "w") as f:
+    with open("./Training Results/0.97814/submissions.csv", "w") as f:
         f.write("ImageId,Label\n")
     for row in range(0, len(X_test), nn.batch_size):
         small_data = X_test[row : row + nn.batch_size]
         nn.forward_propagation(small_data, False)
-        with open("./Training Results/Untested/submissions.csv", "a") as f:
+        with open("./Training Results/0.97814/submissions.csv", "a") as f:
             for predictions in nn.a3:
                 np.savetxt(
                     f,
@@ -394,4 +394,5 @@ def main():
         print("Testing complete")
 
 
-main()
+if __name__ == "__main__":
+    main()
