@@ -3,21 +3,33 @@ import numpy as np
 
 
 class LoadData:
-    def __init__(self):
+    def __init__(
+        self,
+        test_label=False,
+        training_file="./Training Data/Self Training/mnist_train.csv",
+        testing_file="./Training Data/Self Training/mnist_test.csv",
+    ):
+        self.label_present = test_label
         self.training_data = np.loadtxt(
-            "./Training Data/Self Training/mnist_test.csv",
+            training_file,
             delimiter=",",
             skiprows=1,
         )
-        self.X_train, self.Y_train = self.training_data[:, 1:], self.training_data[
-            :, 0
-        ].astype(int)
+        self.X_train, self.Y_train = self.training_data[
+            :, 1:
+        ] / 255, self.training_data[:, 0].astype(int)
+
         self.test_data = np.loadtxt(
-            "./Training Data/Kaggle Competition Data/test.csv",
+            testing_file,
             delimiter=",",
             skiprows=1,
         )
-        self.X_test = self.test_data[:, :]
+        if self.label_present:
+            self.X_test, self.Y_test = self.test_data[:, 1:] / 255, self.test_data[
+                :, 0
+            ].astype(int)
+        else:
+            self.X_test = self.test_data[:, :] / 255
 
     def shuffle_data(
         self, x_data: NDArray[np.float64], y_data: NDArray[np.float64]
@@ -28,18 +40,21 @@ class LoadData:
 
     def load_training_data(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         return self.shuffle_data(
-            self.X_train[: int(0.9 * len(self.X_train)), :] / 255,
+            self.X_train[: int(0.9 * len(self.X_train)), :],
             self.Y_train[: int(0.9 * len(self.X_train))],
         )
 
     def load_validation_data(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         return self.shuffle_data(
-            self.X_train[int(0.9 * len(self.X_train)) :, :] / 255,
+            self.X_train[int(0.9 * len(self.X_train)) :, :],
             self.Y_train[int(0.9 * len(self.X_train)) :],
         )
 
     def load_test_data(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        return self.X_test / 255
+        if self.label_present:
+            return self.X_test, self.Y_test
+        else:
+            return self.X_test
 
 
 class Layer:
@@ -360,28 +375,43 @@ def validate(
 
 
 def test() -> None:
-    big_data = LoadData()
+    big_data = LoadData(test_label=True)
     nn = Network()
     nn.batch_size = 512
     nn.load_parameters(
         filepath="./Training Results/0.97814/model_kaggle_parameters.npz"
     )
-    X_test = big_data.load_test_data()
-    index = 1
-    with open("./Training Results/0.97814/submissions.csv", "w") as f:
-        f.write("ImageId,Label\n")
+    if big_data.label_present:
+        X_test, Y_test = big_data.load_test_data()
+    else:
+        X_test = big_data.load_test_data()
+    with open("./Training Results/0.97814/submissions.csv", "w") as f_predictions:
+        f_predictions.write("ImageId,Label\n")
+    if big_data.label_present:
+        with open("./Training Results/0.97814/answers.csv", "w") as f_labels:
+            f_labels.write("ImageId,CorrectLabel\n")
     for row in range(0, len(X_test), nn.batch_size):
         small_data = X_test[row : row + nn.batch_size]
         nn.forward_propagation(small_data, False)
-        with open("./Training Results/0.97814/submissions.csv", "a") as f:
+        with open("./Training Results/0.97814/submissions.csv", "a") as f_predictions:
             for predictions in nn.a3:
                 np.savetxt(
-                    f,
-                    np.array([[index, np.argmax(predictions)]]),
+                    f_predictions,
+                    np.array([[row + 1, np.argmax(predictions)]]),
                     fmt="%d",
                     delimiter=",",
                 )
-                index += 1
+        if big_data.label_present:
+            correct_labels = Y_test[row : row + nn.batch_size]
+            with open("./Training Results/0.97814/answers.csv", "a") as f_labels:
+                f_labels.write("ImageId,CorrectLabel\n")
+                for correct_answer in correct_labels:
+                    np.savetxt(
+                        f_labels,
+                        np.array([[row + 1, correct_answer]]),
+                        fmt="%d",
+                        delimiter=",",
+                    )
 
 
 def main():
