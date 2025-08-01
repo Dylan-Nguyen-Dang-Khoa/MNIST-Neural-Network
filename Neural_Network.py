@@ -387,12 +387,12 @@ def test() -> None:
     with open(
         "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv", "w"
     ) as f_predictions:
-        f_predictions.write("ImageId,Label\n")
+        f_predictions.write("ImageId,Label,Loss\n")
     if big_data.label_present:
         with open(
             "./Models/0.97814/Model Results/MNIST Kaggle Test Set/answers.csv", "w"
         ) as f_labels:
-            f_labels.write("ImageId,CorrectLabel,Loss\n")
+            f_labels.write("ImageId,CorrectLabel\n")
     for row in range(0, len(X_test), nn.batch_size):
         small_data = X_test[row : row + nn.batch_size]
         nn.forward_propagation(small_data, False)
@@ -411,11 +411,7 @@ def test() -> None:
                                     index + row + 1,
                                     np.argmax(predictions),
                                     -np.log(
-                                        np.clip(
-                                            predictions[np.argmax(predictions)],
-                                            1e-10,
-                                            1.0,
-                                        )
+                                        np.clip(predictions[np.argmax(predictions)])
                                     ),
                                 ]
                             ],

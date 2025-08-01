@@ -9,6 +9,7 @@ predictions = np.loadtxt(
         delimiter=",",
         skiprows=1,
     ) 
+
 def display_random_misclassified_digits():
     correct_mask = predictions[:, 1] == Y_test[:]
     wrong_predictions = predictions[~correct_mask, 1]
