@@ -7,9 +7,10 @@ class LoadData:
         self,
         test_label=False,
         training_file="./Training Data/Self Training/mnist_train.csv",
-        testing_file="./Training Data/Self Training/mnist_test.csv",
+        testing_file="./Models/0.97814/Model Results/MNIST Kaggle Test Set/mnist_test.csv",
     ):
         self.label_present = test_label
+
         self.training_data = np.loadtxt(
             training_file,
             delimiter=",",
@@ -213,7 +214,7 @@ class Network:
         return wrong_predictions
 
     def save_parameters(
-        self, filepath="./Training Results/Default/model_kaggle_parameters.npz"
+        self, filepath="./Models/Default/model_kaggle_parameters.npz"
     ) -> None:
         parameters = {
             "layer 1 weights": self.l1.weights,
@@ -226,7 +227,7 @@ class Network:
         np.savez(filepath, **parameters)
 
     def save_hyperparameters(
-        self, filepath="./Training Results/Default/model_kaggle_hyperparameters.npz"
+        self, filepath="./Models/Default/model_kaggle_hyperparameters.npz"
     ) -> None:
         hyperparameters = {
             "learning rate": self.lr,
@@ -237,7 +238,7 @@ class Network:
         np.savez(filepath, **hyperparameters)
 
     def load_parameters(
-        self, filepath="./Training Results/Default/model_kaggle_parameters.npz"
+        self, filepath="./Models/Default/model_kaggle_parameters.npz"
     ) -> None:
         try:
             load_parameters = np.load(filepath, allow_pickle=True)
@@ -253,7 +254,7 @@ class Network:
             print(f"Error: Missing parameter {e} in the file.")
 
     def load_hyperparameters(
-        self, filepath="./Training Results/Default/model_kaggle_hyperparameters.npz"
+        self, filepath="./Models/Default/model_kaggle_hyperparameters.npz"
     ) -> None:
         try:
             load_hyperparameters = np.load(filepath, allow_pickle=True)
@@ -343,7 +344,7 @@ def train() -> None:
                 best_epoch = epoch
                 if save_weights == "y":
                     nn.save_parameters(
-                        filepath="./Training Results/Untested/model_kaggle_parameters.npz"
+                        filepath="./Models/Untested/model_kaggle_parameters.npz"
                     )
                     print("Parameters saved")
     except KeyboardInterrupt:
@@ -378,37 +379,70 @@ def test() -> None:
     big_data = LoadData(test_label=True)
     nn = Network()
     nn.batch_size = 512
-    nn.load_parameters(
-        filepath="./Training Results/0.97814/model_kaggle_parameters.npz"
-    )
+    nn.load_parameters(filepath="./Models/0.97814/model_kaggle_parameters.npz")
     if big_data.label_present:
         X_test, Y_test = big_data.load_test_data()
     else:
         X_test = big_data.load_test_data()
-    with open("./Training Results/0.97814/submissions.csv", "w") as f_predictions:
+    with open(
+        "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv", "w"
+    ) as f_predictions:
         f_predictions.write("ImageId,Label\n")
     if big_data.label_present:
-        with open("./Training Results/0.97814/answers.csv", "w") as f_labels:
-            f_labels.write("ImageId,CorrectLabel\n")
+        with open(
+            "./Models/0.97814/Model Results/MNIST Kaggle Test Set/answers.csv", "w"
+        ) as f_labels:
+            f_labels.write("ImageId,CorrectLabel,Loss\n")
     for row in range(0, len(X_test), nn.batch_size):
         small_data = X_test[row : row + nn.batch_size]
         nn.forward_propagation(small_data, False)
-        with open("./Training Results/0.97814/submissions.csv", "a") as f_predictions:
-            for predictions in nn.a3:
-                np.savetxt(
-                    f_predictions,
-                    np.array([[row + 1, np.argmax(predictions)]]),
-                    fmt="%d",
-                    delimiter=",",
-                )
         if big_data.label_present:
             correct_labels = Y_test[row : row + nn.batch_size]
-            with open("./Training Results/0.97814/answers.csv", "a") as f_labels:
-                f_labels.write("ImageId,CorrectLabel\n")
-                for correct_answer in correct_labels:
+            with open(
+                "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv",
+                "a",
+            ) as f_predictions:
+                for index, predictions in enumerate(nn.a3):
+                    np.savetxt(
+                        f_predictions,
+                        np.array(
+                            [
+                                [
+                                    index + row + 1,
+                                    np.argmax(predictions),
+                                    -np.log(
+                                        np.clip(
+                                            predictions[np.argmax(predictions)],
+                                            1e-10,
+                                            1.0,
+                                        )
+                                    ),
+                                ]
+                            ],
+                        ),
+                        fmt="%d,%d,%f",
+                        delimiter=",",
+                    )
+
+            with open(
+                "./Models/0.97814/Model Results/MNIST Kaggle Test Set/answers.csv", "a"
+            ) as f_labels:
+                for index, correct_answer in enumerate(correct_labels):
                     np.savetxt(
                         f_labels,
-                        np.array([[row + 1, correct_answer]]),
+                        np.array([[index + row + 1, correct_answer]]),
+                        fmt="%d",
+                        delimiter=",",
+                    )
+        else:
+            with open(
+                "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv",
+                "a",
+            ) as f_predictions:
+                for predictions in nn.a3:
+                    np.savetxt(
+                        f_predictions,
+                        np.array([[row + 1, np.argmax(predictions)]]),
                         fmt="%d",
                         delimiter=",",
                     )
