@@ -29,37 +29,6 @@ def display_random_misclassified_digits():
                 plt.subplot(5, 5, i + 1)
                 plt.imshow(wrong_images[i, :].reshape((28, 28)), cmap="binary")
                 plt.title(
-                    f"Pred: {wrong_predictions[i]}\nTrue: {wrong_images_true_label[i]}",
-                    fontsize=8,
-                )
-                plt.axis("off")
-            except IndexError:
-                pass
-        plt.tight_layout()
-        plt.show()
-    else:
-        print("Everything correct! 100% model accuracy!")
-
-def display_worst_misclassified_digits():
-    correct_mask = predictions[:, 1] == Y_test[:]
-    wrong_predictions = predictions[~correct_mask, 1]
-    wrong_images = X_test[~correct_mask, :]
-    wrong_images_true_label = Y_test[~correct_mask]
-    wrong_image_losses = predictions[~correct_mask, 2]
-    sorted_indices = np.argsort(-wrong_image_losses)
-    wrong_predictions, wrong_images, wrong_images_true_label = (
-        wrong_predictions[sorted_indices],
-        wrong_images[sorted_indices],
-        wrong_images_true_label[sorted_indices],
-    )
-    if len(wrong_images):
-        plt.figure(figsize=(10, 10))
-        num_to_show = min(25, len(wrong_images))
-        for i in range(num_to_show):
-            try:
-                plt.subplot(5, 5, i + 1)
-                plt.imshow(wrong_images[i, :].reshape((28, 28)), cmap="binary")
-                plt.title(
                     f"Pred: {int(wrong_predictions[i])}\nTrue: {int(wrong_images_true_label[i])}",
                     fontsize=8,
                 )
@@ -71,4 +40,24 @@ def display_worst_misclassified_digits():
     else:
         print("Everything correct! 100% model accuracy!")
 
-display_worst_misclassified_digits()
+def display_ugliest_digits():
+    ugliest_indices = np.argsort(-predictions[:, 3])
+    ugliest_images = X_test[ugliest_indices, :]
+    ugliest_images_label = Y_test[ugliest_indices]
+    if len(ugliest_images):
+        plt.figure(figsize=(10, 10))
+        num_to_show = min(25, len(ugliest_images))
+        for i in range(num_to_show):
+            try:
+                plt.subplot(5, 5, i + 1)
+                plt.imshow(ugliest_images[i, :].reshape((28, 28)), cmap="binary")
+                plt.title(f"True: {int(ugliest_images_label[i])}", fontsize=8)
+                plt.axis("off")
+            except IndexError:
+                pass
+        plt.tight_layout()
+        plt.show()
+    else:
+        print("Nothing to see here!")
+    
+display_ugliest_digits()
