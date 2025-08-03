@@ -384,15 +384,20 @@ def test() -> None:
         X_test, Y_test = big_data.load_test_data()
     else:
         X_test = big_data.load_test_data()
-    with open(
-        "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv", "w"
-    ) as f_predictions:
-        f_predictions.write("ImageId,Label,Loss\n")
     if big_data.label_present:
         with open(
             "./Models/0.97814/Model Results/MNIST Kaggle Test Set/answers.csv", "w"
         ) as f_labels:
             f_labels.write("ImageId,CorrectLabel\n")
+        with open(
+            "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv", "w"
+        ) as f_predictions:
+            f_predictions.write("ImageId,Label,Loss,Uncertainty\n")
+    else:
+        with open(
+            "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv", "w"
+        ) as f_predictions:
+            f_predictions.write("ImageId,Label\n")
     for row in range(0, len(X_test), nn.batch_size):
         small_data = X_test[row : row + nn.batch_size]
         nn.forward_propagation(small_data, False)
@@ -413,10 +418,14 @@ def test() -> None:
                                     -np.log(
                                         np.clip(predictions[np.argmax(predictions)])
                                     ),
+                                    -np.sum(
+                                        predictions
+                                        * np.log(np.clip(predictions, 1e-10, 1.0))
+                                    ),
                                 ]
                             ],
                         ),
-                        fmt="%d,%d,%f",
+                        fmt="%d,%d,%f,%f",
                         delimiter=",",
                     )
 
