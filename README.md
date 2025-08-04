@@ -7,7 +7,7 @@ This project implements a fully connected neural network from scratch to classif
 **Key Features:**
 - 97.8% accuracy on Kaggle's test set
 - L2 regularization
-- Standard gradient descent optimization
+- Standard gradient descent optimisation
 - Tracks the best validation accuracy during training and saves the weights for that epoch.
 
 ## Architecture
@@ -25,6 +25,7 @@ This project implements a fully connected neural network from scratch to classif
 ## Dependencies
 - Python 3+
 - Numpy
+- Matplotlib
 
 ## Usage
 ### Training a Model
@@ -45,7 +46,6 @@ Train or test:
 - Put "test" to run the model parameters against the test data
 
 ## Future Improvements
-- Data visualisation in the form of plots and graphs
 - Add batch norm to push model accuracy
 
 
