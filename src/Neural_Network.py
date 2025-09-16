@@ -3,14 +3,8 @@ import numpy as np
 
 
 class LoadData:
-    def __init__(
-        self,
-        test_label=False,
-        training_file="./Training Data/Self Training/mnist_train.csv",
-        testing_file="./Models/0.97814/Model Results/MNIST Kaggle Test Set/mnist_test.csv",
-    ):
+    def __init__(self, training_file: str, testing_file: str, test_label: bool):
         self.label_present = test_label
-
         self.training_data = np.loadtxt(
             training_file,
             delimiter=",",
@@ -35,7 +29,7 @@ class LoadData:
     def shuffle_data(
         self, x_data: NDArray[np.float64], y_data: NDArray[np.float64]
     ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        assert x_data.shape[0] == x_data.shape[0]
+        assert x_data.shape[0] == y_data.shape[0]
         permuted_indicies = np.random.permutation(x_data.shape[0])
         return x_data[permuted_indicies], y_data[permuted_indicies]
 
@@ -52,10 +46,7 @@ class LoadData:
         )
 
     def load_test_data(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        if self.label_present:
-            return self.X_test, self.Y_test
-        else:
-            return self.X_test
+        return self.X_test, self.Y_test if self.label_present else (self.X_test, None)
 
 
 class Layer:
@@ -92,7 +83,7 @@ class Network:
         dropped_output = activated_output * mask
         return dropped_output
 
-    def forward_propagation(self, a0: NDArray[np.float64], dropout: float) -> None:
+    def forward_propagation(self, a0: NDArray[np.float64], dropout: bool) -> None:
         self.z1 = a0 @ self.l1.weights + self.l1.bias
         self.a1 = self.ReLu(self.z1)
         self.d1 = self.dropout_mask(self.a1) if dropout else self.a1
@@ -146,8 +137,7 @@ class Network:
         self, correct_answers: NDArray[np.float64]
     ) -> NDArray[np.float64]:
         y_true = np.zeros((correct_answers.shape[0], 10))
-        for row in range(len(y_true)):
-            y_true[row][correct_answers[row]] = 1.0
+        y_true[np.arange(len(correct_answers)), correct_answers.astype(int)] = 1.0
         return y_true
 
     def ReLu_differentiation(self, array: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -213,9 +203,7 @@ class Network:
             wrong_predictions[true_class] += 1
         return wrong_predictions
 
-    def save_parameters(
-        self, filepath="./Models/Default/model_kaggle_parameters.npz"
-    ) -> None:
+    def save_parameters(self, filepath: str) -> None:
         parameters = {
             "layer 1 weights": self.l1.weights,
             "layer 1 bias": self.l1.bias,
@@ -226,9 +214,7 @@ class Network:
         }
         np.savez(filepath, **parameters)
 
-    def save_hyperparameters(
-        self, filepath="./Models/Default/model_kaggle_hyperparameters.npz"
-    ) -> None:
+    def save_hyperparameters(self, filepath: str) -> None:
         hyperparameters = {
             "learning rate": self.lr,
             "weight decay": self.weight_decay,
@@ -237,9 +223,7 @@ class Network:
         }
         np.savez(filepath, **hyperparameters)
 
-    def load_parameters(
-        self, filepath="./Models/Default/model_kaggle_parameters.npz"
-    ) -> None:
+    def load_parameters(self, filepath: str) -> None:
         try:
             load_parameters = np.load(filepath, allow_pickle=True)
             self.l1.weights = load_parameters["layer 1 weights"]
@@ -253,9 +237,7 @@ class Network:
         except KeyError as e:
             print(f"Error: Missing parameter {e} in the file.")
 
-    def load_hyperparameters(
-        self, filepath="./Models/Default/model_kaggle_hyperparameters.npz"
-    ) -> None:
+    def load_hyperparameters(self, filepath: str) -> None:
         try:
             load_hyperparameters = np.load(filepath, allow_pickle=True)
             self.lr = load_hyperparameters["learning rate"]
@@ -301,13 +283,12 @@ class Corrupt:
         return x_corrupted
 
 
-def train() -> None:
+def train(big_data: LoadData) -> None:
     save_weights = (
         input("Do you wish to save the weights of the training? (y, n): ")
         .strip()
         .lower()
     )
-    big_data = LoadData()
     nn = Network()
     max_epochs = 2**63 - 1
     best_validation_accuracy = 0.0
@@ -375,28 +356,23 @@ def validate(
     )
 
 
-def test() -> None:
-    big_data = LoadData(test_label=True)
+def test(
+    big_data: LoadData, parameter_path: str, predictions_path: str, labels_path: str
+) -> None:
     nn = Network()
     nn.batch_size = 512
-    nn.load_parameters(filepath="./Models/0.97814/model_kaggle_parameters.npz")
+    nn.load_parameters(filepath=parameter_path)
     if big_data.label_present:
         X_test, Y_test = big_data.load_test_data()
     else:
         X_test = big_data.load_test_data()
     if big_data.label_present:
-        with open(
-            "./Models/0.97814/Model Results/MNIST Kaggle Test Set/answers.csv", "w"
-        ) as f_labels:
+        with open(labels_path, "w") as f_labels:
             f_labels.write("ImageId,CorrectLabel\n")
-        with open(
-            "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv", "w"
-        ) as f_predictions:
+        with open(predictions_path, "w") as f_predictions:
             f_predictions.write("ImageId,Label,Loss,Uncertainty\n")
     else:
-        with open(
-            "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv", "w"
-        ) as f_predictions:
+        with open(predictions_path, "w") as f_predictions:
             f_predictions.write("ImageId,Label\n")
     for row in range(0, len(X_test), nn.batch_size):
         small_data = X_test[row : row + nn.batch_size]
@@ -404,7 +380,7 @@ def test() -> None:
         if big_data.label_present:
             correct_labels = Y_test[row : row + nn.batch_size]
             with open(
-                "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv",
+                predictions_path,
                 "a",
             ) as f_predictions:
                 for index, predictions in enumerate(nn.a3):
@@ -429,9 +405,7 @@ def test() -> None:
                         delimiter=",",
                     )
 
-            with open(
-                "./Models/0.97814/Model Results/MNIST Kaggle Test Set/answers.csv", "a"
-            ) as f_labels:
+            with open(labels_path, "a") as f_labels:
                 for index, correct_answer in enumerate(correct_labels):
                     np.savetxt(
                         f_labels,
@@ -441,7 +415,7 @@ def test() -> None:
                     )
         else:
             with open(
-                "./Models/0.97814/Model Results/MNIST Kaggle Test Set/submissions.csv",
+                predictions_path,
                 "a",
             ) as f_predictions:
                 for predictions in nn.a3:
@@ -454,12 +428,13 @@ def test() -> None:
 
 
 def main():
+    big_data = LoadData()
     action = input("Train or test: ").strip().lower()
     if action == "train":
-        train()
+        train(big_data=big_data)
         print("Training complete")
     elif action == "test":
-        test()
+        test(big_data=big_data)
         print("Testing complete")
 
 
