@@ -1,5 +1,6 @@
 from numpy.typing import NDArray
 import numpy as np
+import sys
 
 
 class LoadData:
@@ -425,12 +426,15 @@ def test(
 
 
 def main():
-    big_data = LoadData()
-    action = input("Train or test: ").strip().lower()
-    if action == "train":
+    if sys.argv[3].lower() == "true":
+        test_label = True
+    else:
+        test_label = False
+    big_data = LoadData(sys.argv[1], sys.argv[2], test_label=test_label)
+    if sys.argv[4].lower() == "train":
         train(big_data=big_data)
         print("Training complete")
-    elif action == "test":
+    elif sys.argv[4].lower() == "test":
         test(big_data=big_data)
         print("Testing complete")
 
