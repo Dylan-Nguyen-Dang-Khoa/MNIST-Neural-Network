@@ -23,27 +23,19 @@ This project implements a fully connected neural network from scratch to classif
 - Batch size: 64
 
 ## Dependencies
-- Python 3+
-- Numpy
-- Matplotlib
+- Ensure that you have downloaded the latest version of Python
+- Download the file requirements.txt to find the entire list of dependencies
 
 ## Usage
-### Training a Model
-- Change the file that the parameters will be saved to in the train() function. You would have to change it in the codebase itself.
-- Feel free to play around with hyperparameters in the __init__ dunder method.
-- Run the program. The prompt is as follows:
-Train or test:
-- Put "train" to train the model
-- Afterwards, you will be prompted:
-Do you wish to save the weights of the training? (y, n):
-- Put "y" if you wish to save to the model parameters and "n" if you do not wish to
-  
-### Testing the Model 
-- Specify the model file to load for testing in the test() function
-- Specify where you wish to save the results of the test. It will come out as a pure CSV file (No labels, if you wish to you can modify the code)
-- Run the program. The prompt is as follows:
-Train or test:
-- Put "test" to run the model parameters against the test data
+- I recommend using a virtual environment when running the program
+- In the src folder, open your virtual environment, and run
+pip install -r requirements.txt
+- This will download all the required libraries 
+- Run the file using python3 Neural_Network.py training_file testing_file test_label [train|test]
+- training_file is the filepath to your training data.
+- testing_file is the filepath to your testing data
+- type "true" for test_label if your test data has labels. Training data naturally has labels. Type "false" if your test data does not have labels
+- the last argument [train|test] is required for the code to run. If it does not exist the code will not do anything. Entering "train" will cause the model to start training based on data from the training_file path. Entering "test" will cause the model to test the model against the data in the test_file
 
 ## Future Improvements
 - Add batch norm to push model accuracy
